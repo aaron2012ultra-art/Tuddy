@@ -1,0 +1,6 @@
+{
+  "name": "Tuddy - Tu compañero de estudio inteligente",
+  "description": "Tu compañero de estudio inteligente con IA, modelos de juego adaptativos para cualquier materia y tema, fichas interactivas, resúmenes, tutor explicativo y mascota interactiva.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
