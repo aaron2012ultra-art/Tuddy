@@ -2,7 +2,18 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { PetCustomization } from "../../types";
 import { drawTuddy } from "./TuddyCanvasDraw";
 import { arcadeAudio } from "./ArcadeAudio";
-import { ArrowLeft, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, HelpCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  Trophy,
+  HelpCircle,
+  ArrowUp,
+  ArrowDown,
+  Heart,
+} from "lucide-react";
 
 interface RoundData {
   question: string;
@@ -20,20 +31,15 @@ interface FlappyTuddyGameProps {
   onBack: () => void;
 }
 
-interface PortalGate {
+interface CloudRing {
+  id: number;
+  x: number;
+  y: number;
   letter: string;
   optionText: string;
   isCorrect: boolean;
-  minY: number;
-  maxY: number;
-  centerY: number;
-}
-
-interface GateWall {
-  x: number;
-  width: number;
+  radius: number;
   passed: boolean;
-  portals: PortalGate[];
 }
 
 export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
@@ -50,42 +56,44 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
   const [score, setScore] = useState(0);
   const [carrotsEarned, setCarrotsEarned] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
+  const [lives, setLives] = useState(3);
   const [gameState, setGameState] = useState<"ready" | "flying" | "crashed" | "round_won">("ready");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
 
   const currentRound = rounds[currentRoundIdx] || {
     question: `¿Cuál es el axioma principal de ${topic}?`,
-    options: ["Respuesta Verdadera", "Distractor 1", "Distractor 2"],
+    options: ["Respuesta Verdadera", "Distractor Conceptual", "Alternativa Secundaria"],
     correctAnswer: "Respuesta Verdadera",
-    explanation: `Este principio es la base para comprender ${topic}.`,
+    explanation: `Este principio es la base demostrada para comprender ${topic}.`,
   };
 
-  // Tuddy Physics
+  // Tuddy Physics - Authentic Flappy Bird smooth gravity and rotation
   const tuddy = useRef({
-    x: 140,
+    x: 170,
     y: 220,
     vy: 0,
-    gravity: 0.36,
-    flapStrength: -6.8,
     angle: 0,
+    invulnerableUntil: 0,
   });
 
-  const gateWallRef = useRef<GateWall | null>(null);
+  const ringsRef = useRef<CloudRing[]>([]);
+  const coinsRef = useRef<Array<{ x: number; y: number; collected: boolean }>>([]);
   const animRef = useRef<number | null>(null);
+  const shakeRef = useRef(0);
 
-  // Initialize Portals for the current question: 3 vertical parallel tiers
-  const initPipes = useCallback(() => {
+  // Initialize round: 3 spacious sky rings with comfortable spacing
+  const initRound = useCallback(() => {
     tuddy.current = {
-      x: 140,
+      x: 170,
       y: 220,
       vy: 0,
-      gravity: 0.36,
-      flapStrength: -6.8,
       angle: 0,
+      invulnerableUntil: 0,
     };
+    setLives(3);
 
-    // Shuffle options so they are randomly distributed across heights [A], [B], [C]
+    // Shuffle options across heights [A], [B], [C]
     const opts = [...currentRound.options].slice(0, 3);
     for (let i = opts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -95,66 +103,68 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
     }
 
     const letters = ["A", "B", "C"];
-    const portalH = 110;
-    const spacing = 18; // divider beam height
-
-    // 3 vertically accessible parallel portals at the SAME X distance
-    // Portal A: High (y: 30 to 140)
-    // Portal B: Mid  (y: 158 to 268)
-    // Portal C: Low  (y: 286 to 396)
-    const portals: PortalGate[] = opts.map((opt, idx) => {
-      const minY = 30 + idx * (portalH + spacing);
-      const maxY = minY + portalH;
-      return {
-        letter: letters[idx],
-        optionText: opt,
-        isCorrect: opt === currentRound.correctAnswer,
-        minY,
-        maxY,
-        centerY: (minY + maxY) / 2,
-      };
-    });
-
-    gateWallRef.current = {
-      x: 740,
-      width: 140,
+    // 3 generous sky rings arranged at comfortable, distinct elevations with plenty of room
+    const targetElevations = [120, 240, 350];
+    ringsRef.current = opts.map((opt, idx) => ({
+      id: idx,
+      x: 880 + idx * 25, // Form a clean visible sky fleet
+      y: targetElevations[idx],
+      letter: letters[idx],
+      optionText: opt,
+      isCorrect: opt === currentRound.correctAnswer,
+      radius: 54, // Wide, forgiving entry ring
       passed: false,
-      portals,
-    };
+    }));
+
+    // Floating carrot coins to collect on the way
+    const coins: Array<{ x: number; y: number; collected: boolean }> = [];
+    for (let x = 320; x < 840; x += 110) {
+      coins.push({
+        x,
+        y: 180 + Math.sin(x * 0.02) * 80,
+        collected: false,
+      });
+    }
+    coinsRef.current = coins;
 
     setGameState("ready");
     setFeedback(null);
   }, [currentRound.options, currentRound.correctAnswer]);
 
   useEffect(() => {
-    initPipes();
-  }, [currentRoundIdx, initPipes]);
+    initRound();
+  }, [currentRoundIdx, initRound]);
 
   // Flap jump
   const flap = useCallback(() => {
     if (gameState === "ready") {
       setGameState("flying");
-      tuddy.current.vy = tuddy.current.flapStrength;
+      tuddy.current.vy = -6.2;
       arcadeAudio.playLaunch();
     } else if (gameState === "flying") {
-      tuddy.current.vy = tuddy.current.flapStrength;
+      tuddy.current.vy = -6.2;
       arcadeAudio.playLaunch();
     }
   }, [gameState]);
 
-  // Keyboard controls (Space / ArrowUp)
+  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" || e.code === "ArrowUp") {
+      if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
         e.preventDefault();
         flap();
+      }
+      if (e.code === "ArrowDown" || e.code === "KeyS") {
+        e.preventDefault();
+        // Soft dive
+        tuddy.current.vy = Math.min(6, tuddy.current.vy + 2.5);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [flap]);
 
-  // Canvas render loop
+  // Main canvas animation loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -170,230 +180,266 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
       const height = canvas.height;
       const groundY = height - 50;
 
-      // 1. Sky & Landscape
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-      skyGrad.addColorStop(0, "#38BDF8"); // Light blue
-      skyGrad.addColorStop(0.7, "#BAE6FD");
-      skyGrad.addColorStop(1, "#86EFAC");
+      ctx.save();
+      // Screen shake on hit
+      if (shakeRef.current > 0) {
+        ctx.translate((Math.random() - 0.5) * shakeRef.current, (Math.random() - 0.5) * shakeRef.current);
+        shakeRef.current *= 0.82;
+        if (shakeRef.current < 0.5) shakeRef.current = 0;
+      }
+
+      // 1. Classic Flappy Blue Sky
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+      skyGrad.addColorStop(0, "#4ec0ca"); // Iconic Flappy Cyan
+      skyGrad.addColorStop(0.7, "#70c5ce");
+      skyGrad.addColorStop(1, "#cce8ea");
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // Clouds
+      // Distant retro green hills
+      ctx.fillStyle = "#5ee270";
+      ctx.beginPath();
+      ctx.moveTo(0, groundY);
+      for (let x = 0; x <= width; x += 120) {
+        ctx.quadraticCurveTo(x + 60, groundY - 45, x + 120, groundY);
+      }
+      ctx.fill();
+
+      // Pixel fluffy clouds
       ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      const cloudOffset = (Date.now() * 0.02) % 200;
       [
-        { x: 100, y: 80, r: 24 },
-        { x: 130, y: 70, r: 32 },
-        { x: 420, y: 110, r: 28 },
-        { x: 455, y: 100, r: 38 },
-        { x: 740, y: 75, r: 25 },
+        { x: 80 - cloudOffset, y: 70, w: 90, h: 40 },
+        { x: 380 - cloudOffset, y: 55, w: 120, h: 45 },
+        { x: 680 - cloudOffset, y: 80, w: 100, h: 38 },
       ].forEach((c) => {
         ctx.beginPath();
-        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        ctx.ellipse(c.x < -100 ? c.x + width + 200 : c.x, c.y, c.w / 2, c.h / 2, 0, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      // 2. Vertical Portals Wall
-      const wall = gateWallRef.current;
-      if (wall) {
+      // 2. Move Clouds Rings & Floating Coins
+      const scrollSpeed = gameState === "flying" ? 2.2 : 0;
+
+      // Update and draw floating carrot coins
+      coinsRef.current.forEach((coin) => {
+        if (gameState === "flying") coin.x -= scrollSpeed;
+        if (coin.collected || coin.x < -30) return;
+
+        // Draw golden carrot coin
+        ctx.fillStyle = "#F59E0B";
+        ctx.beginPath();
+        ctx.arc(coin.x, coin.y, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#FEF08A";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "black 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("🥕", coin.x, coin.y + 4);
+
+        // Collect check
+        const dist = Math.hypot(tuddy.current.x - coin.x, tuddy.current.y - coin.y);
+        if (dist < 32) {
+          coin.collected = true;
+          setScore((s) => s + 25);
+          arcadeAudio.playCoin();
+        }
+      });
+
+      // Update and draw Sky Ring Portals [A], [B], [C]
+      ringsRef.current.forEach((ring) => {
         if (gameState === "flying") {
-          wall.x -= 2.0;
+          ring.x -= scrollSpeed;
+          // If missed, loop unpassed ring back to give the player another chance
+          if (ring.x < -160 && !ring.passed) {
+            ring.x = width + 120;
+          }
         }
 
-        // Draw structural vertical gate tower
         ctx.save();
+        ctx.translate(ring.x, ring.y);
 
-        // Background dark frame behind portals
-        ctx.fillStyle = "rgba(15, 23, 42, 0.4)";
-        ctx.fillRect(wall.x - 10, 20, wall.width + 20, groundY - 20);
+        const isRoundWon = gameState === "round_won" && ring.isCorrect;
+        const isCrashedRing = gameState === "crashed" && ring.passed;
 
-        // Draw each portal tier
-        wall.portals.forEach((portal) => {
-          const isSelected = wall.passed && gameState === "round_won" && portal.isCorrect;
-          const isWrongSelected = wall.passed && gameState === "crashed";
+        // Outer Ring - All rings look identically sleek and neutral cyan/golden to prevent spoilers!
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = isRoundWon ? "#10B981" : isCrashedRing ? "#EF4444" : "#0284C7";
+        ctx.fillStyle = isRoundWon
+          ? "rgba(16, 185, 129, 0.25)"
+          : isCrashedRing
+          ? "rgba(239, 68, 68, 0.25)"
+          : "rgba(15, 23, 42, 0.65)";
+        ctx.beginPath();
+        ctx.arc(0, 0, ring.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
 
-          // Aperture glow & frame
-          ctx.fillStyle = isSelected
-            ? "rgba(16, 185, 129, 0.45)"
-            : isWrongSelected
-            ? "rgba(239, 68, 68, 0.35)"
-            : "rgba(15, 23, 42, 0.82)";
+        // Inner glowing ring halo
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = isRoundWon ? "#34D399" : "#38BDF8";
+        ctx.beginPath();
+        ctx.arc(0, 0, ring.radius - 8, 0, Math.PI * 2);
+        ctx.stroke();
 
-          ctx.strokeStyle = isSelected
-            ? "#10B981"
-            : isWrongSelected
-            ? "#EF4444"
-            : "#0284C7";
-          ctx.lineWidth = 3;
-
-          const pH = portal.maxY - portal.minY;
-          ctx.beginPath();
-          ctx.roundRect(wall.x, portal.minY, wall.width, pH, 12);
-          ctx.fill();
-          ctx.stroke();
-
-          // Left and Right Energetic Pylons
-          ctx.fillStyle = "#38BDF8";
-          ctx.fillRect(wall.x - 6, portal.minY + 8, 6, pH - 16);
-          ctx.fillRect(wall.x + wall.width, portal.minY + 8, 6, pH - 16);
-
-          // Letter Badge Pill
-          ctx.fillStyle = isSelected ? "#10B981" : "#F59E0B";
-          ctx.beginPath();
-          ctx.roundRect(wall.x + 10, portal.centerY - 22, 34, 44, 10);
-          ctx.fill();
-          ctx.strokeStyle = "#FFFFFF";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          ctx.fillStyle = "#0F172A";
-          ctx.font = "bold 17px sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(portal.letter, wall.x + 27, portal.centerY + 1);
-
-          // Option text
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 11px sans-serif";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-
-          // Split into 2 lines if needed
-          const words = portal.optionText.split(" ");
-          let line1 = "";
-          let line2 = "";
-          for (const w of words) {
-            if ((line1 + " " + w).length < 18) line1 = (line1 + " " + w).trim();
-            else line2 = (line2 + " " + w).trim();
-          }
-
-          if (line2) {
-            ctx.fillText(line1, wall.x + 50, portal.centerY - 8);
-            ctx.fillText(line2.slice(0, 18), wall.x + 50, portal.centerY + 10);
-          } else {
-            ctx.fillText(portal.optionText.slice(0, 19), wall.x + 50, portal.centerY);
-          }
-        });
-
-        // Draw structural divider bars between portals
-        ctx.fillStyle = "#334155";
-        ctx.strokeStyle = "#64748B";
+        // Option Banner Plaque
+        const badgeW = 160;
+        const badgeH = 46;
+        ctx.fillStyle = isRoundWon ? "rgba(16, 185, 129, 0.95)" : "rgba(15, 23, 42, 0.92)";
+        ctx.strokeStyle = isRoundWon ? "#34D399" : "#38BDF8";
         ctx.lineWidth = 2;
-        // Divider 1 (between A and B)
-        ctx.fillRect(wall.x - 8, 140, wall.width + 16, 18);
-        ctx.strokeRect(wall.x - 8, 140, wall.width + 16, 18);
-        // Divider 2 (between B and C)
-        ctx.fillRect(wall.x - 8, 268, wall.width + 16, 18);
-        ctx.strokeRect(wall.x - 8, 268, wall.width + 16, 18);
+        ctx.beginPath();
+        ctx.roundRect(-badgeW / 2, ring.radius + 6, badgeW, badgeH, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        // Letter [A], [B], [C]
+        ctx.fillStyle = isRoundWon ? "#10B981" : "#F59E0B";
+        ctx.beginPath();
+        ctx.roundRect(-badgeW / 2 + 6, ring.radius + 12, 28, 34, 6);
+        ctx.fill();
+
+        ctx.fillStyle = "#0F172A";
+        ctx.font = "black 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(ring.letter, -badgeW / 2 + 20, ring.radius + 34);
+
+        // Option Text
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "left";
+        const shortText = ring.optionText.length > 17 ? ring.optionText.slice(0, 16) + "…" : ring.optionText;
+        ctx.fillText(shortText, -badgeW / 2 + 40, ring.radius + 33);
 
         ctx.restore();
 
-        // Check Collision with Wall and Portals
-        if (gameState === "flying") {
-          const tuddyX = tuddy.current.x;
-          const tuddyY = tuddy.current.y;
-          const tuddyR = 18;
+        // Ring Collision & Fly-Through Detection
+        if (gameState === "flying" && !ring.passed && Date.now() > tuddy.current.invulnerableUntil) {
+          const dx = tuddy.current.x - ring.x;
+          const dy = tuddy.current.y - ring.y;
+          const dist = Math.hypot(dx, dy);
 
-          // When Tuddy reaches the gate entrance
-          if (tuddyX + tuddyR >= wall.x && tuddyX - tuddyR <= wall.x + wall.width) {
-            // Check if colliding with divider beams
-            const hitDivider1 = tuddyY + tuddyR > 140 && tuddyY - tuddyR < 158;
-            const hitDivider2 = tuddyY + tuddyR > 268 && tuddyY - tuddyR < 286;
-
-            if (hitDivider1 || hitDivider2) {
-              setGameState("crashed");
-              setFeedback("¡Tuddy rozó el divisor entre compuertas! Mantén la altura en el centro del portal.");
-              arcadeAudio.playImpact();
-            }
-          }
-
-          // Crossing through the portal midpoint
-          if (!wall.passed && tuddyX > wall.x + wall.width * 0.4) {
-            wall.passed = true;
-            // Identify which portal Tuddy entered
-            const entered = wall.portals.find((p) => tuddyY >= p.minY && tuddyY <= p.maxY);
-
-            if (entered) {
-              if (entered.isCorrect) {
-                arcadeAudio.playVictory();
-                setScore((s) => s + 150);
-                setCarrotsEarned((c) => c + 25);
-                setGameState("round_won");
-                setFeedback(`¡PORTAL CORRECTO! Cruzaste [${entered.letter}]: "${entered.optionText}". ${currentRound.explanation}`);
-              } else {
-                arcadeAudio.playWrong();
-                setGameState("crashed");
-                setFeedback(`¡Compuerta incorrecta! Cruzaste [${entered.letter}]: "${entered.optionText}". La respuesta correcta era "${currentRound.correctAnswer}".`);
-              }
+          // If Tuddy passes right through the ring center!
+          if (dist < ring.radius + 12) {
+            ring.passed = true;
+            if (ring.isCorrect) {
+              arcadeAudio.playVictory();
+              setGameState("round_won");
+              setScore((s) => s + 100);
+              setCarrotsEarned((c) => c + 2);
+              setFeedback(
+                `¡ANILLO CELESTE ACERTADO! Volaste a través de [${ring.letter}]: "${ring.optionText}". ${currentRound.explanation}`
+              );
             } else {
-              setGameState("crashed");
-              setFeedback("¡No atravesaste ninguna compuerta limpiamente! Inténtalo ajustando tu altitud.");
               arcadeAudio.playWrong();
+              shakeRef.current = 14;
+              tuddy.current.invulnerableUntil = Date.now() + 1800;
+              setLives((l) => {
+                const nl = l - 1;
+                if (nl <= 0) {
+                  setGameState("crashed");
+                  setFeedback(
+                    `¡Agotaste tus vidas! Volaste hacia [${ring.letter}]: "${ring.optionText}". La respuesta correcta era "${currentRound.correctAnswer}". ${currentRound.explanation}`
+                  );
+                } else {
+                  setFeedback(`¡Distractor [${ring.letter}] tocado! Te quedan ${nl} vida(s). ¡Ajusta tu vuelo hacia el anillo correcto!`);
+                }
+                return Math.max(0, nl);
+              });
             }
           }
         }
-      }
+      });
 
-      // 3. Ground
-      ctx.fillStyle = "#16A34A";
-      ctx.fillRect(0, groundY, width, 16);
-      ctx.fillStyle = "#D97706";
-      ctx.fillRect(0, groundY + 16, width, height - (groundY + 16));
+      // 3. Iconic Flappy Striped Ground
+      ctx.fillStyle = "#ded895";
+      ctx.fillRect(0, groundY, width, height - groundY);
+      ctx.fillStyle = "#73bf2e";
+      ctx.fillRect(0, groundY, width, 14);
+
+      // Moving diagonal ground stripe pattern
+      const gOffset = (Date.now() * 0.15) % 24;
+      ctx.fillStyle = "#9de64e";
+      for (let x = -24 + gOffset; x < width + 24; x += 24) {
+        ctx.beginPath();
+        ctx.moveTo(x, groundY);
+        ctx.lineTo(x + 12, groundY);
+        ctx.lineTo(x, groundY + 14);
+        ctx.lineTo(x - 12, groundY + 14);
+        ctx.closePath();
+        ctx.fill();
+      }
 
       // 4. Update Tuddy Physics
       if (gameState === "flying") {
-        tuddy.current.vy += tuddy.current.gravity;
+        tuddy.current.vy += 0.28; // Gravity
+        if (tuddy.current.vy > 6.5) tuddy.current.vy = 6.5; // Max fall speed
         tuddy.current.y += tuddy.current.vy;
-        tuddy.current.angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, tuddy.current.vy * 0.08));
 
-        // Ground crash
-        if (tuddy.current.y >= groundY - 20) {
-          tuddy.current.y = groundY - 20;
-          setGameState("crashed");
-          setFeedback("¡Tuddy cayó al suelo! Inténtalo de nuevo manteniendo la altura.");
-          arcadeAudio.playWrong();
+        // Angle tilts with velocity
+        tuddy.current.angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 6, tuddy.current.vy * 0.09));
+
+        // Floor bounce with safe cushion
+        if (tuddy.current.y >= groundY - 24) {
+          tuddy.current.y = groundY - 24;
+          tuddy.current.vy = -3.5;
+          arcadeAudio.playBounce();
         }
-
         // Ceiling bound
-        if (tuddy.current.y <= 24) {
-          tuddy.current.y = 24;
-          tuddy.current.vy = 0;
+        if (tuddy.current.y < 35) {
+          tuddy.current.y = 35;
+          tuddy.current.vy = 1;
         }
       } else if (gameState === "ready") {
-        // Gentle bobbing hover
-        tuddy.current.y = 220 + Math.sin(Date.now() * 0.005) * 8;
+        // Floating idle bob
+        tuddy.current.y = 220 + Math.sin(Date.now() * 0.006) * 10;
         tuddy.current.angle = 0;
       }
 
-      // 5. Draw Tuddy
+      // 5. Draw Tuddy Flapper
+      const isInvuln = Date.now() < tuddy.current.invulnerableUntil;
+      ctx.save();
+      if (isInvuln && Math.floor(Date.now() / 100) % 2 === 0) {
+        ctx.globalAlpha = 0.4;
+      }
       drawTuddy(ctx, {
         x: tuddy.current.x,
         y: tuddy.current.y,
-        radius: 22,
+        radius: 25,
         angle: tuddy.current.angle,
         expression:
           gameState === "round_won"
             ? "happy"
             : gameState === "crashed"
             ? "dizzy"
-            : gameState === "flying"
-            ? "flying"
             : "normal",
         pet,
       });
+      ctx.restore();
 
-      // Prompt in ready state
+      // Ready prompt overlay
       if (gameState === "ready") {
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(width / 2 - 160, height / 2 - 45, 320, 70);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+        ctx.beginPath();
+        ctx.roundRect(width / 2 - 200, height / 2 - 45, 400, 80, 16);
+        ctx.fill();
+        ctx.strokeStyle = "#38BDF8";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 16px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("¡Haz clic o pulsa ESPACIO para volar!", width / 2, height / 2 - 15);
+        ctx.fillText("¡Toca la pantalla o ESPACIO para aletear!", width / 2, height / 2 - 14);
         ctx.fillStyle = "#FDE047";
         ctx.font = "bold 13px sans-serif";
-        ctx.fillText("Cruza la puerta con la respuesta correcta 🚪✨", width / 2, height / 2 + 12);
+        ctx.fillText("Vuela hacia el anillo con la respuesta correcta 🪽✨", width / 2, height / 2 + 16);
       }
 
+      ctx.restore(); // Restore shake
       animRef.current = requestAnimationFrame(render);
     };
 
@@ -429,7 +475,7 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-wider bg-sky-500 text-white px-2 py-0.5 rounded-full">
-                Flappy Bird Arcade
+                Flappy Retro Arcade
               </span>
               <span className="text-xs text-sky-300 font-bold">
                 {subject} • {topic}
@@ -441,7 +487,13 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Hearts / Lives */}
+          <div className="flex items-center gap-1 bg-rose-500/20 px-3 py-1.5 rounded-2xl border border-rose-500/40">
+            <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+            <span className="text-sm font-black text-rose-300">{lives}/3</span>
+          </div>
+
           <div className="flex items-center gap-1.5 bg-amber-500/20 px-3 py-1.5 rounded-2xl border border-amber-500/40">
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-black text-amber-300">{score} pts</span>
@@ -481,7 +533,7 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
         </div>
 
         <div className="text-xs text-sky-200/90 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 shrink-0 font-medium">
-          Control: Clic / Barra Espaciadora 🚀
+          Aletear: Espacio / Clic / ⬆️ • Descender: ⬇️
         </div>
       </div>
 
@@ -497,7 +549,16 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
           className="w-full max-w-full h-auto touch-none"
         />
 
-        {feedback && (
+        {/* In-flight warning banner */}
+        {feedback && gameState === "flying" && (
+          <div className="absolute top-4 left-4 right-4 p-3 rounded-2xl bg-amber-950/85 border border-amber-500/60 backdrop-blur-md shadow-lg flex items-center justify-center gap-2 text-amber-200 text-xs font-bold pointer-events-none">
+            <span>⚠️</span>
+            <span>{feedback}</span>
+          </div>
+        )}
+
+        {/* Game over / round won modal */}
+        {feedback && (gameState === "round_won" || gameState === "crashed") && (
           <div
             className={`absolute bottom-4 left-4 right-4 p-4 rounded-2xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 border ${
               gameState === "round_won"
@@ -528,7 +589,7 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    initPipes();
+                    initRound();
                   }}
                   className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-colors cursor-pointer flex items-center gap-1"
                 >
@@ -541,7 +602,27 @@ export const FlappyTuddyGame: React.FC<FlappyTuddyGameProps> = ({
         )}
       </div>
 
-      {/* Completion */}
+      {/* Flight Control Buttons & Option Reference */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        {ringsRef.current.map((ring, idx) => (
+          <div
+            key={idx}
+            onClick={() => {
+              // Guide Tuddy towards altitude of this ring smoothly
+              tuddy.current.vy = (ring.y - tuddy.current.y) * 0.08;
+              arcadeAudio.playBounce();
+            }}
+            className="p-2.5 rounded-xl border bg-slate-800/60 border-slate-700 text-slate-300 hover:border-sky-500 flex items-center gap-2.5 cursor-pointer transition-all"
+          >
+            <span className="w-6 h-6 rounded-lg bg-sky-500 text-slate-950 font-black flex items-center justify-center shrink-0">
+              {ring.letter}
+            </span>
+            <span className="font-semibold line-clamp-2">{ring.optionText}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Completion Modal */}
       {isCompleted && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-sky-500 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl flex flex-col items-center gap-4">

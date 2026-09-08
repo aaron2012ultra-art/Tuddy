@@ -18,15 +18,20 @@ import {
   AlertCircle,
   FileCheck,
   Volume2,
+  VolumeX,
   Shuffle,
   Link2,
-  Crown
+  Crown,
+  Headphones,
+  Zap,
+  BookOpen
 } from "lucide-react";
 import { ExamQuestion, ExamConfig, ExamSession, PetCustomization } from "../types";
 import { AnthropomorphicBunny, PetAvatar } from "./AnthropomorphicBunny";
 import { DEFAULT_PET } from "../utils/storage";
 import { useTranslation } from "../utils/translations";
 import confetti from "canvas-confetti";
+import { TuddyAudioPlayer, TuddyAudioData } from "./TuddyAudioPlayer";
 
 interface ExamSimulatorProps {
   initialTopic?: string;
@@ -85,6 +90,94 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
   const [evaluatingOpenAnswers, setEvaluatingOpenAnswers] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [maxScore, setMaxScore] = useState(100);
+
+  // Audio state (Estudiar y Repasar para Exámenes)
+  const [examAudioData, setExamAudioData] = useState<TuddyAudioData | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioLoadingMode, setAudioLoadingMode] = useState<"study" | "review" | null>(null);
+  const [showExamAudioPlayer, setShowExamAudioPlayer] = useState(true);
+  const [speakingText, setSpeakingText] = useState<string | null>(null);
+
+  const speakText = (text: string) => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    if (speakingText === text) {
+      setSpeakingText(null);
+      return;
+    }
+    const clean = text.replace(/[#*_`~]/g, "").trim();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = "es-ES";
+    utterance.rate = 1.0;
+    utterance.onstart = () => setSpeakingText(text);
+    utterance.onend = () => setSpeakingText(null);
+    utterance.onerror = () => setSpeakingText(null);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleGenerateExamAudio = async (mode: "study" | "review", isPostExam = false) => {
+    setIsGeneratingAudio(true);
+    setAudioLoadingMode(mode);
+    try {
+      let contentToSend = notesSource || topic;
+      let titleToSend = topic;
+      let contextType: "exam_prep" | "exam_review" = "exam_prep";
+      let extraContext = `Dificultad: ${difficulty}. Preguntas: ${effectiveQuestionCount}`;
+
+      if (isPostExam) {
+        contextType = "exam_review";
+        titleToSend = examTitle || topic;
+        const failedQuestions = questions
+          .filter((q) => (userAnswers[q.id] || "").trim().toLowerCase() !== q.correctAnswer.trim().toLowerCase())
+          .map((q) => `Pregunta: "${q.question}". Explicación: ${q.explanation}`);
+
+        extraContext = `Puntuación obtenida: ${finalScore}/${maxScore} (${Math.round((finalScore / (maxScore || 1)) * 100)}%). Errores a repasar: ${failedQuestions.join(" | ")}`;
+        contentToSend = `Examen: ${examTitle}. Puntos clave a reforzar:\n${failedQuestions.slice(0, 5).join("\n")}`;
+      }
+
+      const res = await fetch("/api/ai/generate-study-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: titleToSend,
+          content: contentToSend,
+          mode,
+          contextType,
+          extraContext,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.spokenScript) {
+        setExamAudioData({
+          audioTitle: data.audioTitle || `${mode === "study" ? "🎧 Audio-Clase de Estudio" : "⚡ Audio-Repaso Express"}: ${titleToSend}`,
+          mode,
+          durationEstimate: data.durationEstimate || "~2 min",
+          spokenScript: data.spokenScript,
+          sections: data.sections || [],
+          keyTakeaways: data.keyTakeaways || [],
+          tuddyMascotTip: data.tuddyMascotTip || "¡Orejitas arriba y mente serena! 🐰✨",
+        });
+        setShowExamAudioPlayer(true);
+        confetti({ particleCount: 35, spread: 50 });
+        onRewardCarrot(2);
+        if (onTuddyCheer) {
+          onTuddyCheer(
+            isPostExam
+              ? "¡Audio-repaso de examen generado! Escucha a Tuddy analizar tus resultados 🎧🐰"
+              : mode === "study"
+              ? "¡Audio de estudio preparatorio listo! Estudia con tus auriculares antes de empezar 🎧🐰"
+              : "¡Audio-repaso express listo! 2 minutos de repaso relámpago con Tuddy ⚡🐰"
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Error generating exam audio:", err);
+    } finally {
+      setIsGeneratingAudio(false);
+      setAudioLoadingMode(null);
+    }
+  };
 
   // Timer countdown
   useEffect(() => {
@@ -568,6 +661,72 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
               />
             </div>
 
+            {/* Tuddy Audio Studio Pre-Exam (Estudiar o Repasar con Voz de IA) */}
+            <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-amber-50/50 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                  <Headphones className="h-4 w-4 text-indigo-600" />
+                  <span>Audios Preparatorios Tuddy IA:</span>
+                  <span className="text-[11px] font-normal text-slate-600">¿Prefieres escuchar antes de responder?</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isGeneratingAudio || !topic.trim()}
+                    onClick={() => handleGenerateExamAudio("study", false)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-indigo-500 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+                    title="Audio de estudio profundo con explicación didáctica paso a paso"
+                  >
+                    {isGeneratingAudio && audioLoadingMode === "study" ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Creando Audio de Estudio...</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>🎧 Audio de Estudio</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isGeneratingAudio || !topic.trim()}
+                    onClick={() => handleGenerateExamAudio("review", false)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-2xs hover:bg-amber-400 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+                    title="Audio-repaso express de 2 minutos con puntos críticos y trampas de examen"
+                  >
+                    {isGeneratingAudio && audioLoadingMode === "review" ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Creando Audio-Repaso...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-3.5 w-3.5 fill-current" />
+                        <span>⚡ Audio-Repaso Relámpago</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Render player if audio generated for this exam session */}
+              {examAudioData && showExamAudioPlayer && (
+                <div className="pt-2">
+                  <TuddyAudioPlayer
+                    audioData={examAudioData}
+                    pet={pet}
+                    onClose={() => setShowExamAudioPlayer(false)}
+                    onSwitchMode={(newMode) => handleGenerateExamAudio(newMode, false)}
+                    isLoadingNewMode={isGeneratingAudio}
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Submit / Launch Button */}
             <div className="pt-3">
               <button
@@ -655,10 +814,27 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
               <span className="font-semibold text-slate-600">{activeQ.points} puntos</span>
             </div>
 
-            {/* Question Text */}
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
-              {activeQ.question}
-            </h3>
+            {/* Question Text with Audio Read-Aloud Button */}
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug flex-1">
+                {activeQ.question}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  const fullText = `${activeQ.question}. ${activeQ.options ? 'Opciones: ' + activeQ.options.join('. ') : ''}`;
+                  speakText(fullText);
+                }}
+                className={`p-2 rounded-xl border transition-all shrink-0 cursor-pointer ${
+                  speakingText?.includes(activeQ.question)
+                    ? "bg-amber-100 border-amber-300 text-amber-900 animate-pulse ring-2 ring-amber-300"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-white"
+                }`}
+                title="Escuchar pregunta y alternativas con voz"
+              >
+                <Volume2 className="h-4 w-4" />
+              </button>
+            </div>
 
             {/* Scenario or Visual Description box if present */}
             {activeQ.scenarioOrVisual && (
@@ -891,7 +1067,15 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
                 ) : (
                   <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200 flex items-start gap-2.5">
                     <PetAvatar pet={pet} size="xs" showBg={false} />
-                    <span className="pt-0.5">{activeQ.hint}</span>
+                    <span className="pt-0.5 flex-1">{activeQ.hint}</span>
+                    <button
+                      type="button"
+                      onClick={() => speakText(`Pista de ${pet.name}: ${activeQ.hint}`)}
+                      className="p-1 text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-lg transition-colors"
+                      title="Escuchar pista"
+                    >
+                      <Volume2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -973,6 +1157,61 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
               </div>
             </div>
 
+            {/* Audio-Repaso de Resultados con Tuddy IA */}
+            <div className="pt-3 border-t border-amber-200/80 flex flex-col items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <button
+                  type="button"
+                  disabled={isGeneratingAudio}
+                  onClick={() => handleGenerateExamAudio("review", true)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 py-2.5 text-xs font-black shadow-md transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {isGeneratingAudio && audioLoadingMode === "review" ? (
+                    <>
+                      <RotateCw className="h-4 w-4 animate-spin" />
+                      <span>Generando Audio-Repaso...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 fill-current" />
+                      <span>⚡ Audio-Repaso de Resultados con Tuddy</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isGeneratingAudio}
+                  onClick={() => handleGenerateExamAudio("study", true)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 text-xs font-black shadow-md transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {isGeneratingAudio && audioLoadingMode === "study" ? (
+                    <>
+                      <RotateCw className="h-4 w-4 animate-spin" />
+                      <span>Generando Audio de Estudio...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Headphones className="h-4 w-4" />
+                      <span>🎧 Audio-Clase de Refuerzo</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {examAudioData && showExamAudioPlayer && (
+                <div className="w-full max-w-2xl text-left">
+                  <TuddyAudioPlayer
+                    audioData={examAudioData}
+                    pet={pet}
+                    onClose={() => setShowExamAudioPlayer(false)}
+                    onSwitchMode={(newMode) => handleGenerateExamAudio(newMode, true)}
+                    isLoadingNewMode={isGeneratingAudio}
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 type="button"
@@ -1045,9 +1284,21 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
 
                   <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5">
                     <PetAvatar pet={pet} size="xs" showBg={false} />
-                    <div className="pt-0.5">
+                    <div className="pt-0.5 flex-1">
                       <span className="font-bold">Explicación de {pet.name}:</span> {q.explanation}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => speakText(`Pregunta: ${q.question}. Respuesta correcta: ${q.correctAnswer}. Explicación de ${pet.name}: ${q.explanation}`)}
+                      className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                        speakingText?.includes(q.question)
+                          ? "bg-amber-200 border-amber-400 text-amber-950 ring-2 ring-amber-300"
+                          : "bg-white/80 border-amber-200 text-amber-800 hover:bg-white"
+                      }`}
+                      title="Escuchar explicación con voz"
+                    >
+                      <Volume2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               );

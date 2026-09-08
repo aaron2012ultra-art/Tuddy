@@ -139,6 +139,7 @@ export const AngryTuddyGame: React.FC<AngryTuddyGameProps> = ({
       angle: 0,
       trail: [],
     };
+    setShotsLeft(3);
     setGameState("aiming");
     setFeedback(null);
   }, [currentRound.options]);
@@ -369,10 +370,54 @@ export const AngryTuddyGame: React.FC<AngryTuddyGameProps> = ({
           if (Math.abs(tuddyState.current.vx) < 0.4 && tuddyState.current.vy === 0) {
             tuddyState.current.inFlight = false;
             if (gameState === "flying") {
-              setGameState("hit_wrong");
-              setFeedback("¡Tuddy aterrizó en el suelo! Vuelve a apuntar a la torre correcta.");
               arcadeAudio.playWrong();
+              setShotsLeft((currentShots) => {
+                if (currentShots <= 0) {
+                  setGameState("out_of_shots");
+                  setFeedback(
+                    `¡Se acabaron los tiros! La respuesta correcta era: "${currentRound.correctAnswer}". ${currentRound.explanation}`
+                  );
+                } else {
+                  setGameState("aiming");
+                  setFeedback(
+                    `¡Tiro al suelo! Te quedan ${currentShots} tiro(s). Vuelve a tensar el tirachinas apuntando a las torres.`
+                  );
+                  tuddyState.current.x = SLING_X;
+                  tuddyState.current.y = SLING_Y;
+                  tuddyState.current.vx = 0;
+                  tuddyState.current.vy = 0;
+                  tuddyState.current.angle = 0;
+                }
+                return currentShots;
+              });
             }
+          }
+        }
+
+        // Out of bounds check
+        if (tuddyState.current.x > width + 40 || tuddyState.current.y > height + 40) {
+          tuddyState.current.inFlight = false;
+          if (gameState === "flying") {
+            arcadeAudio.playWrong();
+            setShotsLeft((currentShots) => {
+              if (currentShots <= 0) {
+                setGameState("out_of_shots");
+                setFeedback(
+                  `¡Se acabaron los tiros! La respuesta correcta era: "${currentRound.correctAnswer}". ${currentRound.explanation}`
+                );
+              } else {
+                setGameState("aiming");
+                setFeedback(
+                  `¡Tiro fuera de alcance! Te quedan ${currentShots} tiro(s). Ajusta la fuerza y ángulo hacia las torres.`
+                );
+                tuddyState.current.x = SLING_X;
+                tuddyState.current.y = SLING_Y;
+                tuddyState.current.vx = 0;
+                tuddyState.current.vy = 0;
+                tuddyState.current.angle = 0;
+              }
+              return currentShots;
+            });
           }
         }
 
@@ -406,16 +451,37 @@ export const AngryTuddyGame: React.FC<AngryTuddyGameProps> = ({
                 arcadeAudio.playVictory();
                 setGameState("hit_correct");
                 setScore((s) => s + 100);
-                setCarrotsEarned((c) => c + 25);
+                setCarrotsEarned((c) => c + 2);
                 setFeedback(`¡EXCELENTE! ¡Destruiste la torre con la respuesta correcta! ${currentRound.explanation}`);
                 tuddyState.current.inFlight = false;
                 addDebris(block.x, block.y, "#F59E0B", 35);
               } else {
                 // Incorrect target hit
                 arcadeAudio.playWrong();
-                setGameState("hit_wrong");
-                setFeedback(`¡Cuidado! Esa torre era "${selectedOption}". La respuesta correcta es "${currentRound.correctAnswer}".`);
                 tuddyState.current.inFlight = false;
+                block.hp = 0;
+                block.isHit = true;
+
+                setShotsLeft((currentShots) => {
+                  const letter = ["A", "B", "C", "D"][block.targetIndex ?? 0] || "•";
+                  if (currentShots <= 0) {
+                    setGameState("out_of_shots");
+                    setFeedback(
+                      `¡Se acabaron los tiros! La torre correcta era: "${currentRound.correctAnswer}". ${currentRound.explanation}`
+                    );
+                  } else {
+                    setGameState("aiming");
+                    setFeedback(
+                      `¡Distractor [${letter}] destruido! Te quedan ${currentShots} tiro(s) para acertar a la torre correcta.`
+                    );
+                    tuddyState.current.x = SLING_X;
+                    tuddyState.current.y = SLING_Y;
+                    tuddyState.current.vx = 0;
+                    tuddyState.current.vy = 0;
+                    tuddyState.current.angle = 0;
+                  }
+                  return currentShots;
+                });
               }
             }
           }
@@ -593,7 +659,11 @@ export const AngryTuddyGame: React.FC<AngryTuddyGameProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-rose-500/20 px-3 py-1.5 rounded-2xl border border-rose-500/40">
+            <span className="text-sm">🎯</span>
+            <span className="text-xs font-black text-rose-300">{shotsLeft}/3 Tiros</span>
+          </div>
           <div className="flex items-center gap-1.5 bg-amber-500/20 px-3 py-1.5 rounded-2xl border border-amber-500/40">
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-black text-amber-300">{score} pts</span>

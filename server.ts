@@ -58,33 +58,49 @@ async function generateContentWithRetry(options: GenerateContentOptions) {
   let lastError: any = null;
 
   for (const model of uniqueModels) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await ai.models.generateContent({
-          model,
-          contents: options.contents,
-          config: options.config,
-        });
-        return res;
-      } catch (err: any) {
-        lastError = err;
-        const msg = String(err?.message || "");
-        const status = err?.status || err?.code || (err?.error && err?.error?.code);
-        const isTransient =
-          status === 503 ||
-          status === 429 ||
-          status === "UNAVAILABLE" ||
-          msg.includes("503") ||
-          msg.includes("high demand") ||
-          msg.includes("UNAVAILABLE") ||
-          msg.includes("RESOURCE_EXHAUSTED");
+    try {
+      const res = await ai.models.generateContent({
+        model,
+        contents: options.contents,
+        config: options.config,
+      });
+      return res;
+    } catch (err: any) {
+      lastError = err;
+      const msg = String(err?.message || "").toLowerCase();
+      const status = err?.status || err?.code || (err?.error && err?.error?.code);
+      const isQuotaExhausted =
+        status === 429 ||
+        msg.includes("resource_exhausted") ||
+        msg.includes("quota") ||
+        msg.includes("rate-limits");
 
-        if (isTransient) {
-          // Pause briefly before trying next attempt or fallback model
-          await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-        } else {
-          // If non-transient, move to next model
-          break;
+      if (isQuotaExhausted) {
+        console.warn(`Model ${model} quota exhausted, falling back to next available model...`);
+        // Immediately try next model in uniqueModels without wasting time
+        continue;
+      }
+
+      // If temporary network spike or 503, retry once
+      const isTransient503 =
+        status === 503 ||
+        status === "UNAVAILABLE" ||
+        msg.includes("503") ||
+        msg.includes("high demand") ||
+        msg.includes("unavailable");
+
+      if (isTransient503) {
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const retryRes = await ai.models.generateContent({
+            model,
+            contents: options.contents,
+            config: options.config,
+          });
+          return retryRes;
+        } catch (retryErr) {
+          lastError = retryErr;
+          continue;
         }
       }
     }
@@ -418,6 +434,183 @@ ${rawContent.slice(0, 250)}...
     });
   }
 });
+
+// 2-audio. AI Study & Review Audio Generator Endpoint (Exámenes y Resúmenes)
+app.post("/api/ai/generate-study-audio", async (req: Request, res: Response) => {
+  const { 
+    title = "Sesión de Estudio", 
+    content = "", 
+    mode = "study", // 'study' (estudio profundo) | 'review' (repaso rápido)
+    contextType = "summary", // 'summary' | 'exam_prep' | 'exam_review'
+    extraContext = ""
+  } = req.body;
+
+  try {
+    const isStudyMode = mode === "study";
+    const prompt = `Eres Tuddy, el conejito tutor pedagógico inteligente y narrador de podcasts educativos más claro y motivador.
+Tu objetivo es generar una sesión de audio oral para que el estudiante escuche atentamente con sus auriculares mientras estudia o repasa.
+
+Modalidad de audio: ${isStudyMode ? "ESTUDIO PROFUNDO (explicación paso a paso de los conceptos clave, analogías sencillas de visualizar y comprensión profunda)" : "REPASO RELÁMPAGO (síntesis ágil con puntos críticos, trampas de examen y nemotecnias memorables)"}.
+Tipo de contexto: ${
+      contextType === "exam_prep" 
+        ? "Preparación auditiva previa a rendir un examen" 
+        : contextType === "exam_review" 
+        ? "Revisión y retroalimentación auditiva post-examen analizando aciertos y áreas de refuerzo" 
+        : "Audio-guía didáctica de un resumen o apunte de estudio"
+    }.
+Título o tema: "${title}".
+${extraContext ? `Contexto complementario: "${extraContext}"` : ""}
+
+Material de referencia:
+"""
+${(content || title).slice(0, 10000)}
+"""
+
+Pautas de locución de Tuddy:
+- Escribe el guión tal como se DEBE HABLAR en voz alta (lenguaje conversacional fluido, sin símbolos como asteriscos o viñetas).
+- Incluye frases afectuosas y entusiastas de Tuddy (ej. '¡Hola! Aquí Tuddy con tus orejitas bien atentas...', 'Un secreto clave que debes retener...', '¡Vamos con todo!').
+- Si es para examen, enfatiza cómo justificar la respuesta correcta y cómo no caer en distractores comunes.
+
+Genera estrictamente un JSON con:
+- audioTitle: Título amigable del audio (ej. "${isStudyMode ? '🎧 Audio-Clase de Estudio: ' : '⚡ Audio-Repaso Express: '}${title}")
+- mode: "${mode}"
+- durationEstimate: Duración estimada de lectura (ej. "2 min 30 s")
+- spokenScript: Guión completo continuo listo para ser leído en voz alta
+- sections: Array de 3 a 5 secciones con "title" y "text" descriptivo
+- keyTakeaways: Array de 3 ideas fuerza para memorizar
+- tuddyMascotTip: Frase final de ánimo de Tuddy`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            audioTitle: { type: Type.STRING },
+            mode: { type: Type.STRING },
+            durationEstimate: { type: Type.STRING },
+            spokenScript: { type: Type.STRING },
+            sections: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  text: { type: Type.STRING },
+                },
+                required: ["title", "text"],
+              },
+            },
+            keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+            tuddyMascotTip: { type: Type.STRING },
+          },
+          required: ["audioTitle", "mode", "durationEstimate", "spokenScript", "sections", "keyTakeaways", "tuddyMascotTip"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI generate-study-audio fallback invoked:", error?.message || error);
+    const fallback = generateFallbackStudyAudio(title, content, mode, contextType);
+    res.json(fallback);
+  }
+});
+
+function generateFallbackStudyAudio(title: string, content: string, mode: string, contextType: string) {
+  const cleanTitle = title || "Tema de Estudio";
+  const isStudy = mode === "study";
+
+  if (contextType === "exam_prep") {
+    return {
+      audioTitle: isStudy ? `🎧 Audio-Guía de Examen: ${cleanTitle}` : `⚡ Repaso Rápido para Examen: ${cleanTitle}`,
+      mode,
+      durationEstimate: "2 min 15 s",
+      spokenScript: `¡Hola! Soy Tuddy, tu compañero de estudio. Abre bien las orejitas porque vamos a preparar tu examen sobre ${cleanTitle}. Primero, respira hondo. El secreto para aprobar no es memorizar a lo loco, sino entender la lógica de cada concepto. Segundo, fíjate muy bien en las palabras clave de cada pregunta: palabras como siempre, nunca o excepto suelen esconder trampas. Tercero, confía en tu preparación previa. ¡Tus patitas van con paso firme hacia un sobresaliente!`,
+      sections: [
+        {
+          title: "1. Calentamiento Mental con Tuddy",
+          text: `¡Hola! Soy Tuddy. Antes de iniciar cualquier evaluación sobre ${cleanTitle}, despeja tu mente y enfoca tu atención.`,
+        },
+        {
+          title: "2. Puntos Críticos y Trampas Típicas",
+          text: "En los exámenes de este tema, los evaluadores buscan que distingas entre conceptos similares. Lee con calma el enunciado antes de elegir.",
+        },
+        {
+          title: "3. Estrategia de Resolución",
+          text: "Responde primero lo que sabes con certeza y deja para una segunda vuelta las preguntas dudosas. ¡Mantén el ritmo y la confianza!",
+        },
+      ],
+      keyTakeaways: [
+        "Comprender la lógica fundamental antes que memorizar mecánicamente",
+        "Identificar palabras trampa en las opciones del examen",
+        "Gestionar el tiempo y revisar con calma",
+      ],
+      tuddyMascotTip: "¡Orejitas arriba y mente serena! ¡Tú tienes todo el potencial para lograrlo! 🐰✨",
+    };
+  }
+
+  if (contextType === "exam_review") {
+    return {
+      audioTitle: `🎧 Audio-Repaso de Resultados: ${cleanTitle}`,
+      mode,
+      durationEstimate: "2 min",
+      spokenScript: `¡Enhorabuena por completar tu simulacro de ${cleanTitle}! Soy Tuddy y estoy muy orgulloso de tu esfuerzo. Cada error que tuviste hoy es un regalo de aprendizaje, porque nos enseña exactamente qué punto repasar para que en el examen real no se te escape ni un punto. Vamos a reforzar los conceptos clave y a consolidar lo aprendido en tu memoria de largo plazo.`,
+      sections: [
+        {
+          title: "1. Balance Positivo del Examen",
+          text: "Hacer un simulacro demuestra compromiso real con tu aprendizaje. Cada pregunta practicada fortalece tus conexiones neuronales.",
+        },
+        {
+          title: "2. Análisis Constructivo de Errores",
+          text: "No te desanimes si fallaste alguna pregunta. Vuelve a leer la explicación pedagógica y busca la causa raíz del despiste.",
+        },
+        {
+          title: "3. Plan de Consolidación",
+          text: "Repasa las tarjetas de estudio asociadas a este tema en 24 horas para fijar los conocimientos en tu memoria a largo plazo.",
+        },
+      ],
+      keyTakeaways: [
+        "Los errores en simulacros son oportunidades de mejora",
+        "Releer la explicación consolida el razonamiento correcto",
+        "Repasar espaciadamente en 24 horas sella el aprendizaje",
+      ],
+      tuddyMascotTip: "¡Un saltito más cerca de tu meta! ¡Sigue así! 🐰🥕",
+    };
+  }
+
+  // General note/summary audio
+  return {
+    audioTitle: isStudy ? `🎧 Audio-Clase de Estudio: ${cleanTitle}` : `⚡ Audio-Repaso Rápido: ${cleanTitle}`,
+    mode,
+    durationEstimate: "2 min 30 s",
+    spokenScript: `¡Hola! Qué gusto saludarte. Soy Tuddy y hoy te acompaño a estudiar ${cleanTitle}. Vamos a desglosar los puntos más importantes de este material de forma amena y clara. La idea principal es comprender la estructura básica y cómo se conectan los conceptos entre sí. Escucha con atención cada punto y visualízalo mentalmente para que se fije en tu memoria.`,
+    sections: [
+      {
+        title: "1. Introducción y Núcleo Conceptual",
+        text: `El tema ${cleanTitle} se fundamenta en principios claros que permiten organizar toda la materia. Comprender este núcleo te dará la base para todo lo demás.`,
+      },
+      {
+        title: "2. Conceptos Clave y Aplicaciones",
+        text: "Al conectar las definiciones con ejemplos prácticos, el cerebro retiene hasta tres veces más información que con la lectura pasiva.",
+      },
+      {
+        title: "3. Conclusión y Nemotecnia de Tuddy",
+        text: "Recuerda la regla de las tres R: Repasar activamente, Reconstruir con tus palabras y Resolver ejercicios prácticos.",
+      },
+    ],
+    keyTakeaways: [
+      "Comprender el núcleo conceptual antes de los detalles",
+      "Visualizar ejemplos prácticos mientras escuchas",
+      "Explicar lo aprendido con palabras propias",
+    ],
+    tuddyMascotTip: "¡Excelente sesión de audio! Descansa un momento y deja que tu cerebro procese la información 🐰🧠",
+  };
+}
+
 
 // 2b. High-Fidelity PDF & Document Parser (Extracts true academic content and diagrams, strictly filters metadata)
 app.post("/api/ai/parse-document", async (req: Request, res: Response) => {
@@ -1205,9 +1398,9 @@ function generateFallbackGame(gameId: string, subject: string, topic: string, di
         question: `¿Cuál es el postulado o principio rector de ${cleanTopic} en ${cleanSubject}?`,
         options: [
           `El axioma fundamental demostrado de ${cleanTopic}`,
-          `Una excepción irrelevante sin validez general`,
-          `Un concepto empírico descartado en el siglo XIX`,
-          `Una falacia de causa falsa común`,
+          `El enfoque empírico de aproximación lineal`,
+          `La hipótesis de equilibrio estático secundario`,
+          `El principio de conservación localizada`,
         ],
         correctAnswer: `El axioma fundamental demostrado de ${cleanTopic}`,
         explanation: `Este axioma sienta las bases para deducir todas las propiedades prácticas de ${cleanTopic}.`,
@@ -1216,20 +1409,20 @@ function generateFallbackGame(gameId: string, subject: string, topic: string, di
         question: `¿Qué relación directa se observa al analizar las variables principales de ${cleanTopic}?`,
         options: [
           "Correlación causal respaldada por la evidencia teórica y práctica",
-          "Variación puramente aleatoria sin patrón determinable",
-          "Incompatibilidad total con el método científico",
-          "Dependencia exclusiva de factores subjetivos",
+          "Proporcionalidad inversa condicionada por el entorno",
+          "Comportamiento asintótico en regímenes transitorios",
+          "Independencia paramétrica bajo supuestos cerrados",
         ],
         correctAnswer: "Correlación causal respaldada por la evidencia teórica y práctica",
         explanation: "La formulación rigurosa demuestra la proporcionalidad directa y comprobada.",
       },
       {
-        question: `¿Cómo se aplica eficazmente ${cleanTopic} en la resolución de problemas reales en ${cleanSubject}?`,
+        question: `¿Cómo se aplica eficazmente ${cleanTopic} en la resolución de problemas en ${cleanSubject}?`,
         options: [
           `Formulando hipótesis, deduciendo con rigor y contrastando resultados`,
-          "Ignorando los datos iniciales y operando al azar",
-          "Memorizando fórmulas aisladas sin comprender las unidades de medida",
-          "Aplicando teoremas de áreas incompatibles",
+          "Estimando rangos medios mediante extrapolación heurística",
+          "Sustituyendo condiciones de frontera por valores promedio",
+          "Descomponiendo el sistema en subsistemas aislados no lineales",
         ],
         correctAnswer: `Formulando hipótesis, deduciendo con rigor y contrastando resultados`,
         explanation: "El método paso a paso asegura la precisión y evita errores conceptuales.",
@@ -1238,9 +1431,9 @@ function generateFallbackGame(gameId: string, subject: string, topic: string, di
         question: `¿Cuál de las siguientes afirmaciones describe de manera precisa a ${cleanTopic}?`,
         options: [
           `Permite estructurar modelos predictivos sólidos en ${cleanSubject}`,
-          "Carece de demostración matemática o experimental válida",
-          "Contradice las leyes universales de la disciplina",
-          "Se aplica únicamente a un caso aislado sin réplica",
+          "Describe exclusivamente fluctuaciones estocásticas en regímenes límite",
+          "Se restringe a sistemas homogéneos en condiciones ideales",
+          "Constituye una regla práctica dependiente de calibración empírica",
         ],
         correctAnswer: `Permite estructurar modelos predictivos sólidos en ${cleanSubject}`,
         explanation: "La solidez del modelo permite aplicarlo con éxito en exámenes y proyectos.",

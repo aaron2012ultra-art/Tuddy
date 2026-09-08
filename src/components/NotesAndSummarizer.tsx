@@ -10,18 +10,21 @@ import {
   Copy, 
   Check, 
   BookOpen, 
-  Flame,
-  FileCheck2,
-  RefreshCw,
-  Image as ImageIcon,
-  ScanText,
-  Tag,
-  Eye,
-  X,
-  Lightbulb,
-  ExternalLink,
-  Layers,
-  ArrowRight
+  Flame, 
+  FileCheck2, 
+  RefreshCw, 
+  Image as ImageIcon, 
+  ScanText, 
+  Tag, 
+  Eye, 
+  X, 
+  Lightbulb, 
+  ExternalLink, 
+  Layers, 
+  ArrowRight,
+  Headphones,
+  Volume2,
+  Zap
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { StudyNote, Flashcard, PetCustomization } from "../types";
@@ -30,6 +33,7 @@ import { DEFAULT_PET } from "../utils/storage";
 import confetti from "canvas-confetti";
 import { ConfirmModal } from "./ConfirmModal";
 import { useTranslation } from "../utils/translations";
+import { TuddyAudioPlayer, TuddyAudioData } from "./TuddyAudioPlayer";
 
 interface NotesAndSummarizerProps {
   notes: StudyNote[];
@@ -64,6 +68,12 @@ export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
   const [copied, setCopied] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  // Audio state (Estudiar y Repasar)
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioLoadingMode, setAudioLoadingMode] = useState<"study" | "review" | null>(null);
+  const [activeAudioData, setActiveAudioData] = useState<TuddyAudioData | null>(null);
+  const [showAudioPlayer, setShowAudioPlayer] = useState(true);
+
   // Document & Image parsing states
   const [isParsingDoc, setIsParsingDoc] = useState(false);
   const [docParsingStatus, setDocParsingStatus] = useState("");
@@ -79,6 +89,8 @@ export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
   const handleSelectNote = (note: StudyNote) => {
     setSelectedNoteId(note.id);
     setIsEditing(false);
+    setActiveAudioData(null);
+    setShowAudioPlayer(true);
   };
 
   const handleCreateNewNote = () => {
@@ -518,6 +530,99 @@ export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
     navigator.clipboard.writeText(currentNote.aiSummary);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Generate Tuddy Audio for Study or Review
+  const handleGenerateAudio = async (mode: "study" | "review", overrideSource?: string) => {
+    if (!currentNote) return;
+    const contentToUse = overrideSource || currentNote.aiSummary || currentNote.rawContent;
+    if (!contentToUse.trim()) {
+      setUploadError("Por favor agrega texto o sube un documento a tus apuntes antes de generar el audio.");
+      return;
+    }
+
+    setIsGeneratingAudio(true);
+    setAudioLoadingMode(mode);
+    setUploadError("");
+
+    try {
+      const res = await fetch("/api/ai/generate-study-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: currentNote.title,
+          content: contentToUse,
+          mode,
+          contextType: "summary",
+          extraContext: `Materia: ${currentNote.subject}. Incluye resumen didáctico previo: ${Boolean(currentNote.aiSummary)}`,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.spokenScript) {
+        const newAudioData: TuddyAudioData = {
+          audioTitle: data.audioTitle || `${mode === "study" ? "🎧 Audio-Clase de Estudio" : "⚡ Audio-Repaso Express"}: ${currentNote.title}`,
+          mode,
+          durationEstimate: data.durationEstimate || "~2 min",
+          spokenScript: data.spokenScript,
+          sections: data.sections || [],
+          keyTakeaways: data.keyTakeaways || [],
+          tuddyMascotTip: data.tuddyMascotTip || "¡Orejitas arriba y mente despejada! 🐰✨",
+        };
+
+        setActiveAudioData(newAudioData);
+        setShowAudioPlayer(true);
+
+        // Persist into note
+        const updated = notes.map((n) =>
+          n.id === currentNote.id
+            ? {
+                ...n,
+                savedAudio: {
+                  ...newAudioData,
+                  createdAt: new Date().toISOString(),
+                },
+                updatedAt: new Date().toISOString(),
+              }
+            : n
+        );
+        onSaveNotes(updated);
+        confetti({ particleCount: 40, spread: 60 });
+        onRewardCarrot(3);
+        if (onTuddyCheer) {
+          onTuddyCheer(
+            mode === "study"
+              ? "¡Audio de estudio generado! Disfruta la explicación didáctica con tus auriculares 🎧🐰"
+              : "¡Audio-repaso express listo! Puntos clave directos al grano para memorizar ⚡🐰"
+          );
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadError("Error al generar el audio de estudio. Intenta nuevamente.");
+    } finally {
+      setIsGeneratingAudio(false);
+      setAudioLoadingMode(null);
+    }
+  };
+
+  const handleDeleteSavedAudio = () => {
+    if (!currentNote?.savedAudio) return;
+    setConfirmModalState({
+      isOpen: true,
+      title: "¿Eliminar este audio?",
+      message: "¿Deseas eliminar el audio guardado en esta nota? Tus notas y resúmenes escritos se conservarán intactos.",
+      confirmText: "Eliminar Audio",
+      action: () => {
+        const updated = notes.map((n) =>
+          n.id === currentNote.id ? { ...n, savedAudio: undefined, updatedAt: new Date().toISOString() } : n
+        );
+        onSaveNotes(updated);
+        setActiveAudioData(null);
+        if (onTuddyCheer) onTuddyCheer("Audio eliminado de la nota 🗑️");
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   return (
@@ -992,26 +1097,90 @@ export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
                     Tuddy estructura la idea principal, conceptos clave, advertencias para exámenes y nemotecnias sin saturación.
                   </p>
 
-                  <button
-                    type="button"
-                    disabled={isSummarizing || !currentNote.rawContent.trim()}
-                    onClick={handleGenerateSummary}
-                    className="inline-flex items-center gap-1.5 rounded-2xl bg-[#FFB7B2] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#ffa5a0] active:scale-95 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
-                  >
-                    {isSummarizing ? (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                        <span>Tuddy resumiendo...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3.5 w-3.5" />
-                        <span>{currentNote.aiSummary ? "Re-generar Resumen" : "Generar Resumen"}</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSummarizing || !currentNote.rawContent.trim()}
+                      onClick={handleGenerateSummary}
+                      className="inline-flex items-center gap-1.5 rounded-2xl bg-[#FFB7B2] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#ffa5a0] active:scale-95 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                    >
+                      {isSummarizing ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          <span>Tuddy resumiendo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>{currentNote.aiSummary ? "Re-generar Resumen" : "Generar Resumen"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tuddy Audio Generation Studio Bar (Estudiar o Repasar con Voz de IA) */}
+                <div className="pt-2 border-t border-amber-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 text-xs text-amber-950 font-bold">
+                    <Headphones className="h-4 w-4 text-indigo-600" />
+                    <span>Audios Pedagógicos Tuddy IA:</span>
+                    <span className="text-[11px] font-normal text-slate-600">Escucha con auriculares para estudiar o repasar</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isGeneratingAudio || (!currentNote.rawContent.trim() && !currentNote.aiSummary)}
+                      onClick={() => handleGenerateAudio("study")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-indigo-500 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+                      title="Genera un audio para estudiar en profundidad con explicaciones y analogías"
+                    >
+                      {isGeneratingAudio && audioLoadingMode === "study" ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          <span>Creando Audio de Estudio...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Headphones className="h-3.5 w-3.5" />
+                          <span>🎧 Generar Audio de Estudio</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isGeneratingAudio || (!currentNote.rawContent.trim() && !currentNote.aiSummary)}
+                      onClick={() => handleGenerateAudio("review")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-2xs hover:bg-amber-400 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+                      title="Genera un audio-repaso express con puntos clave y nemotecnias"
+                    >
+                      {isGeneratingAudio && audioLoadingMode === "review" ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          <span>Creando Audio-Repaso...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-3.5 w-3.5 fill-current" />
+                          <span>⚡ Generar Audio-Repaso</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Tuddy Audio Player Render (When an audio has been generated or exists for this note) */}
+              {(activeAudioData || currentNote.savedAudio) && showAudioPlayer && (
+                <TuddyAudioPlayer
+                  audioData={activeAudioData || currentNote.savedAudio!}
+                  pet={pet}
+                  onClose={() => setShowAudioPlayer(false)}
+                  onSwitchMode={(newMode) => handleGenerateAudio(newMode)}
+                  isLoadingNewMode={isGeneratingAudio}
+                />
+              )}
 
               {/* AI Summary Render Display with PROMINENT Delete Summary Button */}
               {currentNote.aiSummary ? (
@@ -1023,6 +1192,29 @@ export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
                     </span>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* Audio buttons for summary */}
+                      <button
+                        type="button"
+                        disabled={isGeneratingAudio}
+                        onClick={() => handleGenerateAudio("study", currentNote.aiSummary)}
+                        className="inline-flex items-center gap-1 text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-xl font-bold transition-colors cursor-pointer"
+                        title="Escuchar este resumen como audio-clase"
+                      >
+                        <Headphones className="h-3.5 w-3.5" />
+                        <span>Escuchar Resumen</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isGeneratingAudio}
+                        onClick={() => handleGenerateAudio("review", currentNote.aiSummary)}
+                        className="inline-flex items-center gap-1 text-xs text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-xl font-bold transition-colors cursor-pointer"
+                        title="Escuchar resumen en modo repaso rápido"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        <span>Audio-Repaso</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={handleCopySummary}

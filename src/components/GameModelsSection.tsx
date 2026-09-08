@@ -613,7 +613,7 @@ export function GameModelsSection({
                     }}
                   />
                 )}
-                {activeGameMeta.id === "tuddy_brick_breaker" && (
+                {(activeGameMeta.id === "tuddy_brick_breaker" || activeGameMeta.id === "brick_breaker") && (
                   <TuddyBrickBreakerGame
                     rounds={activeGameContent.rounds}
                     topic={activeGameContent.topic}
@@ -639,7 +639,7 @@ export function GameModelsSection({
                     }}
                   />
                 )}
-                {activeGameMeta.id === "tuddy_ninja" && (
+                {(activeGameMeta.id === "tuddy_ninja" || activeGameMeta.id === "fruit_ninja") && (
                   <FruitNinjaGame
                     rounds={activeGameContent.rounds}
                     topic={activeGameContent.topic}
@@ -652,7 +652,7 @@ export function GameModelsSection({
                     }}
                   />
                 )}
-                {activeGameMeta.id === "subway_tuddy" && (
+                {(activeGameMeta.id === "subway_tuddy" || activeGameMeta.id === "subway_runner") && (
                   <SubwayRunnerGame
                     rounds={activeGameContent.rounds}
                     topic={activeGameContent.topic}
@@ -665,7 +665,7 @@ export function GameModelsSection({
                     }}
                   />
                 )}
-                {activeGameMeta.id === "doodle_tuddy" && (
+                {(activeGameMeta.id === "doodle_tuddy" || activeGameMeta.id === "doodle_jump") && (
                   <DoodleTuddyGame
                     rounds={activeGameContent.rounds}
                     topic={activeGameContent.topic}
@@ -683,10 +683,14 @@ export function GameModelsSection({
                   "flappy_tuddy",
                   "tuddy_invaders",
                   "tuddy_brick_breaker",
+                  "brick_breaker",
                   "pac_tuddy",
                   "tuddy_ninja",
+                  "fruit_ninja",
                   "subway_tuddy",
+                  "subway_runner",
                   "doodle_tuddy",
+                  "doodle_jump",
                 ].includes(activeGameMeta.id) && (
                   <GenericArcadeEngine
                     gameId={activeGameMeta.id}

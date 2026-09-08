@@ -2,7 +2,18 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { PetCustomization } from "../../types";
 import { drawTuddy } from "./TuddyCanvasDraw";
 import { arcadeAudio } from "./ArcadeAudio";
-import { ArrowLeft, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, HelpCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  Trophy,
+  HelpCircle,
+  ArrowLeft as ArrowL,
+  ArrowRight as ArrowR,
+  Heart,
+} from "lucide-react";
 
 interface RoundData {
   question: string;
@@ -21,14 +32,17 @@ interface DoodleTuddyGameProps {
 }
 
 interface Platform {
+  id: number;
   x: number;
   y: number;
   w: number;
   h: number;
-  text: string;
-  isCorrect: boolean;
-  broken: boolean;
-  type: "normal" | "spring" | "answer";
+  type: "normal" | "spring" | "moving" | "cloud_answer";
+  letter?: string;
+  text?: string;
+  isCorrect?: boolean;
+  broken?: boolean;
+  vx?: number;
 }
 
 export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
@@ -45,45 +59,54 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
   const [score, setScore] = useState(0);
   const [carrotsEarned, setCarrotsEarned] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
+  const [lives, setLives] = useState(3);
   const [gameState, setGameState] = useState<"playing" | "round_won" | "fallen">("playing");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
 
   const currentRound = rounds[currentRoundIdx] || {
-    question: `¿Qué fundamento eleva el conocimiento en ${topic}?`,
-    options: ["Fundamento Real", "Error Conceptual A", "Error Conceptual B"],
-    correctAnswer: "Fundamento Real",
-    explanation: `Este fundamento eleva la precisión de todo el estudio de ${topic}.`,
+    question: `Asciende y salta en la nube con la respuesta de ${topic}:`,
+    options: ["Fundamento Comprobado", "Aproximación Secundaria", "Hipótesis Descuidada"],
+    correctAnswer: "Fundamento Comprobado",
+    explanation: `Este principio es la base matemática y conceptual de ${topic}.`,
   };
 
   const tuddy = useRef({
-    x: 240,
-    y: 400,
+    x: 270,
+    y: 380,
     vx: 0,
     vy: -10,
     radius: 18,
   });
 
   const platformsRef = useRef<Platform[]>([]);
-  const animRef = useRef<number | null>(null);
   const keysPressed = useRef<{ left: boolean; right: boolean }>({ left: false, right: false });
+  const animRef = useRef<number | null>(null);
+  const shakeRef = useRef(0);
 
+  // Initialize Round Platforms
   const initRound = useCallback(() => {
     tuddy.current = {
-      x: 240,
-      y: 400,
+      x: 270,
+      y: 380,
       vx: 0,
-      vy: -10,
+      vy: -11,
       radius: 18,
     };
+    setLives(3);
 
+    // Bouncing platform steps leading up
     const plats: Platform[] = [
-      { x: 180, y: 500, w: 120, h: 18, text: "Base", isCorrect: false, broken: false, type: "normal" },
-      { x: 80, y: 390, w: 110, h: 18, text: "Impulso", isCorrect: false, broken: false, type: "spring" },
-      { x: 290, y: 290, w: 110, h: 18, text: "Salto", isCorrect: false, broken: false, type: "normal" },
+      // Base safety trampoline
+      { id: 1, x: 200, y: 460, w: 140, h: 18, type: "spring" },
+      { id: 2, x: 70, y: 370, w: 100, h: 16, type: "normal" },
+      { id: 3, x: 370, y: 350, w: 100, h: 16, type: "moving", vx: 1.6 },
+      { id: 4, x: 210, y: 260, w: 110, h: 18, type: "spring" },
+      { id: 5, x: 80, y: 190, w: 95, h: 16, type: "normal" },
+      { id: 6, x: 360, y: 170, w: 95, h: 16, type: "normal" },
     ];
 
-    // Shuffle options across answer platforms
+    // Shuffle options across the 3 Cloud Answer Platforms at the summit
     const opts = [...currentRound.options].slice(0, 3);
     for (let i = opts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -93,17 +116,19 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
     }
 
     const letters = ["A", "B", "C"];
+    const cloudXs = [40, 205, 370];
     opts.forEach((opt, idx) => {
-      const isCorrect = opt === currentRound.correctAnswer;
       plats.push({
-        x: 35 + idx * 145,
-        y: 130 - (idx % 2) * 30,
-        w: 135,
-        h: 30,
-        text: `[${letters[idx]}] ${opt}`,
-        isCorrect,
+        id: 10 + idx,
+        x: cloudXs[idx],
+        y: 85,
+        w: 130,
+        h: 36,
+        type: "cloud_answer",
+        letter: letters[idx],
+        text: opt,
+        isCorrect: opt === currentRound.correctAnswer,
         broken: false,
-        type: "answer",
       });
     });
 
@@ -116,7 +141,7 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
     initRound();
   }, [currentRoundIdx, initRound]);
 
-  // Controls
+  // Keyboard controls
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "ArrowLeft" || e.code === "KeyA") keysPressed.current.left = true;
@@ -134,15 +159,15 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
     };
   }, []);
 
-  const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePointerMove = (clientX: number) => {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const clientX = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const scaleX = canvasRef.current.width / rect.width;
-    tuddy.current.x = (clientX - rect.left) * scaleX;
+    const targetX = (clientX - rect.left) * scaleX;
+    tuddy.current.vx = (targetX - tuddy.current.x) * 0.15;
   };
 
-  // Main canvas loop
+  // Main Canvas Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -157,123 +182,191 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
       const width = canvas.width;
       const height = canvas.height;
 
-      // Graph paper notebook background (Doodle Jump style!)
-      ctx.fillStyle = "#FDFBF7";
+      ctx.save();
+      if (shakeRef.current > 0) {
+        ctx.translate((Math.random() - 0.5) * shakeRef.current, (Math.random() - 0.5) * shakeRef.current);
+        shakeRef.current *= 0.82;
+        if (shakeRef.current < 0.5) shakeRef.current = 0;
+      }
+
+      // 1. Classic Doodle Jump Yellowish Graph Notebook Paper
+      ctx.fillStyle = "#FBF7DC"; // Iconic Doodle notebook color
       ctx.fillRect(0, 0, width, height);
 
       // Grid lines
-      ctx.strokeStyle = "#E2E8F0";
+      ctx.strokeStyle = "rgba(180, 210, 230, 0.45)";
       ctx.lineWidth = 1;
-      for (let x = 0; x < width; x += 25) {
+      for (let x = 0; x < width; x += 22) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
         ctx.stroke();
       }
-      for (let y = 0; y < height; y += 25) {
+      for (let y = 0; y < height; y += 22) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
         ctx.stroke();
       }
 
-      // Physics update
+      // 2. Update Moving Platforms
+      platformsRef.current.forEach((p) => {
+        if (p.type === "moving" && p.vx) {
+          p.x += p.vx;
+          if (p.x <= 20 || p.x + p.w >= width - 20) {
+            p.vx *= -1;
+          }
+        }
+      });
+
+      // 3. Update Tuddy Physics
       if (gameState === "playing") {
-        if (keysPressed.current.left) tuddy.current.x -= 6;
-        if (keysPressed.current.right) tuddy.current.x += 6;
+        if (keysPressed.current.left) tuddy.current.vx = -5.8;
+        else if (keysPressed.current.right) tuddy.current.vx = 5.8;
+        else tuddy.current.vx *= 0.88;
 
-        // Wrap around screen edges
-        if (tuddy.current.x < 0) tuddy.current.x = width;
-        if (tuddy.current.x > width) tuddy.current.x = 0;
-
-        tuddy.current.vy += 0.38; // gravity
+        tuddy.current.x += tuddy.current.vx;
+        tuddy.current.vy += 0.38; // Gravity
         tuddy.current.y += tuddy.current.vy;
 
-        // Check bounce on platforms (only when falling down)
+        // Screen wrap (left to right)
+        if (tuddy.current.x < -10) tuddy.current.x = width + 10;
+        if (tuddy.current.x > width + 10) tuddy.current.x = -10;
+
+        // Landing bounce on platforms (only when falling downwards)
         if (tuddy.current.vy > 0) {
           platformsRef.current.forEach((p) => {
             if (p.broken) return;
+
             if (
-              tuddy.current.x + tuddy.current.radius > p.x &&
-              tuddy.current.x - tuddy.current.radius < p.x + p.w &&
+              tuddy.current.x >= p.x - 12 &&
+              tuddy.current.x <= p.x + p.w + 12 &&
               tuddy.current.y + tuddy.current.radius >= p.y &&
-              tuddy.current.y + tuddy.current.radius <= p.y + p.h + 10
+              tuddy.current.y + tuddy.current.radius <= p.y + p.h + 12
             ) {
-              // Bounced on platform!
               if (p.type === "spring") {
-                tuddy.current.vy = -14;
+                tuddy.current.vy = -14.5; // Big spring boing!
                 arcadeAudio.playLaunch();
-              } else if (p.type === "answer") {
+              } else if (p.type === "cloud_answer") {
                 if (p.isCorrect) {
-                  // Reached and bounced on correct answer platform!
-                  tuddy.current.vy = -15;
                   arcadeAudio.playVictory();
                   setGameState("round_won");
-                  setScore((s) => s + 150);
-                  setCarrotsEarned((c) => c + 25);
-                  setFeedback(`¡CIMA ALCANZADA! Aterrizaste en el fundamento correcto: "${p.text}". ${currentRound.explanation}`);
+                  setScore((s) => s + 250);
+                  setCarrotsEarned((c) => c + 35);
+                  setFeedback(
+                    `¡CIMA ALCANZADA! Aterrizaste en la nube [${p.letter}]: "${p.text}". ${currentRound.explanation}`
+                  );
                 } else {
-                  // Landed on fake/distractor platform, breaks under Tuddy!
                   p.broken = true;
                   arcadeAudio.playWrong();
-                  tuddy.current.vy = 2;
+                  shakeRef.current = 14;
+                  tuddy.current.vy = 2; // Sinks down
+                  setLives((l) => {
+                    const nl = l - 1;
+                    if (nl <= 0) {
+                      setGameState("fallen");
+                      setFeedback(
+                        `¡Distractor [${p.letter}] se quebró! La respuesta correcta era "${currentRound.correctAnswer}".`
+                      );
+                    } else {
+                      setFeedback(`¡Nube distractora [${p.letter}]! Te quedan ${nl} vidas para saltar a la correcta.`);
+                    }
+                    return Math.max(0, nl);
+                  });
                 }
               } else {
-                tuddy.current.vy = -10.5;
+                tuddy.current.vy = -10.5; // Normal platform bounce
                 arcadeAudio.playBounce();
               }
             }
           });
         }
 
-        // Fallen down bottom
-        if (tuddy.current.y > height + 40) {
-          setGameState("fallen");
-          setFeedback(`¡Tuddy cayó al vacío! Debías impulsarte hacia "${currentRound.correctAnswer}".`);
-          arcadeAudio.playWrong();
+        // Trampoline safety net at bottom (bounce back up!)
+        if (tuddy.current.y > height - 10) {
+          shakeRef.current = 12;
+          arcadeAudio.playBounce();
+          setLives((l) => {
+            const nl = l - 1;
+            if (nl <= 0) {
+              setGameState("fallen");
+              setFeedback(`¡Tuddy cayó al vacío! La respuesta correcta era "${currentRound.correctAnswer}".`);
+            } else {
+              // Trampoline bounce back up
+              tuddy.current.y = height - 30;
+              tuddy.current.vy = -14;
+              setFeedback(`¡El trampolín de emergencia te salvó! Te quedan ${nl} vidas.`);
+            }
+            return Math.max(0, nl);
+          });
         }
       }
 
-      // Draw Platforms
+      // 4. Draw Platforms
       platformsRef.current.forEach((p) => {
         if (p.broken) return;
 
         ctx.save();
         ctx.translate(p.x, p.y);
 
-        if (p.type === "answer") {
-          // Glow answer banner: neutral indigo so answer is not revealed before jumping!
-          const isSelectedWon = gameState === "round_won" && p.isCorrect;
-          ctx.fillStyle = isSelectedWon ? "#10B981" : "#6366F1";
+        if (p.type === "cloud_answer") {
+          // Cloud Summit Platform - All clouds look identically stylish and fluffy to avoid spoilers!
+          ctx.fillStyle = "#38BDF8";
+          ctx.beginPath();
+          ctx.roundRect(0, 0, p.w, p.h, 12);
+          ctx.fill();
+          ctx.strokeStyle = "#0284C7";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          // Letter Badge
+          ctx.fillStyle = "#F59E0B";
+          ctx.beginPath();
+          ctx.roundRect(6, 6, 24, 24, 6);
+          ctx.fill();
+
+          ctx.fillStyle = "#0F172A";
+          ctx.font = "black 13px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(`[${p.letter}]`, 18, 23);
+
+          // Option Text
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "left";
+          const shortText = (p.text || "").slice(0, 13);
+          ctx.fillText(shortText, 34, 22);
+        } else if (p.type === "spring") {
+          // Green bouncy platform with metallic spring
+          ctx.fillStyle = "#84CC16";
           ctx.beginPath();
           ctx.roundRect(0, 0, p.w, p.h, 8);
           ctx.fill();
-          ctx.strokeStyle = isSelectedWon ? "#34D399" : "#A5B4FC";
+          ctx.strokeStyle = "#4D7C0F";
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 11px sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText(p.text.slice(0, 18), p.w / 2, p.h / 2 + 4);
-        } else if (p.type === "spring") {
+          // Spring coils on top
+          ctx.fillStyle = "#64748B";
+          ctx.fillRect(p.w / 2 - 10, -6, 20, 6);
+          ctx.fillStyle = "#EF4444";
+          ctx.fillRect(p.w / 2 - 12, -10, 24, 4);
+        } else if (p.type === "moving") {
+          // Blue moving platform
           ctx.fillStyle = "#38BDF8";
           ctx.beginPath();
-          ctx.roundRect(0, 0, p.w, p.h, 6);
+          ctx.roundRect(0, 0, p.w, p.h, 8);
           ctx.fill();
           ctx.strokeStyle = "#0284C7";
           ctx.lineWidth = 2;
           ctx.stroke();
-
-          // Spring coil
-          ctx.fillStyle = "#F59E0B";
-          ctx.fillRect(p.w / 2 - 10, -8, 20, 8);
         } else {
-          ctx.fillStyle = "#84CC16";
+          // Normal iconic green doodle platform
+          ctx.fillStyle = "#22C55E";
           ctx.beginPath();
-          ctx.roundRect(0, 0, p.w, p.h, 6);
+          ctx.roundRect(0, 0, p.w, p.h, 8);
           ctx.fill();
-          ctx.strokeStyle = "#4D7C0F";
+          ctx.strokeStyle = "#15803D";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
@@ -281,15 +374,21 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
         ctx.restore();
       });
 
-      // Draw Tuddy Jumper
+      // 5. Draw Doodle Tuddy
+      ctx.save();
+      // Rotate Tuddy depending on horizontal velocity
+      const angle = tuddy.current.vx * 0.05;
       drawTuddy(ctx, {
         x: tuddy.current.x,
         y: tuddy.current.y,
         radius: 20,
-        expression: gameState === "round_won" ? "happy" : gameState === "fallen" ? "dizzy" : "flying",
+        angle,
+        expression: gameState === "round_won" ? "happy" : gameState === "fallen" ? "dizzy" : "focused",
         pet,
       });
+      ctx.restore();
 
+      ctx.restore(); // Restore shake
       animRef.current = requestAnimationFrame(render);
     };
 
@@ -312,7 +411,7 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
 
   return (
     <div className="bg-slate-900 rounded-3xl p-4 sm:p-6 text-white max-w-5xl mx-auto shadow-2xl border-4 border-lime-500/30 flex flex-col gap-4 select-none">
-      {/* Header */}
+      {/* Top Bar */}
       <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
         <div className="flex items-center gap-3">
           <button
@@ -332,12 +431,16 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-              Doodle Tuddy: Salto a la Cima 🦘
+              Doodle Tuddy: Salto a la Cumbre 🦘📝
             </h2>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-1 bg-rose-500/20 px-3 py-1.5 rounded-2xl border border-rose-500/40">
+            <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+            <span className="text-sm font-black text-rose-300">{lives}/3</span>
+          </div>
           <div className="flex items-center gap-1.5 bg-amber-500/20 px-3 py-1.5 rounded-2xl border border-amber-500/40">
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-black text-amber-300">{score} pts</span>
@@ -368,7 +471,7 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
           <div>
             <div className="text-[11px] font-bold text-lime-300 flex items-center gap-1 uppercase tracking-wider">
               <HelpCircle className="w-3.5 h-3.5" />
-              Misión de Altura:
+              Misión de Salto:
             </div>
             <p className="text-sm sm:text-base font-bold text-white leading-snug">
               {currentRound.question}
@@ -377,21 +480,21 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
         </div>
 
         <div className="text-xs text-lime-200/90 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 shrink-0 font-medium">
-          Mueve a Tuddy a la plataforma con la respuesta correcta 🦘
+          Mover: ⬅️/➡️ o mueve el ratón • Aterriza en la nube [A, B o C] correcta
         </div>
       </div>
 
       {/* Canvas */}
       <div
-        onMouseMove={handlePointerMove}
-        onTouchMove={handlePointerMove}
-        className="relative rounded-2xl overflow-hidden border-2 border-slate-700 bg-white shadow-2xl flex justify-center max-w-lg mx-auto"
+        onMouseMove={(e) => handlePointerMove(e.clientX)}
+        onTouchMove={(e) => handlePointerMove(e.touches[0].clientX)}
+        className="relative rounded-2xl overflow-hidden border-2 border-slate-700 bg-black shadow-2xl flex justify-center cursor-pointer"
       >
         <canvas
           ref={canvasRef}
-          width={480}
-          height={540}
-          className="w-full max-w-full h-auto touch-none"
+          width={540}
+          height={500}
+          className="w-full max-w-md h-auto touch-none"
         />
 
         {feedback && (
@@ -403,7 +506,7 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
             }`}
           >
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{gameState === "round_won" ? "🏔️" : "💥"}</span>
+              <span className="text-3xl">{gameState === "round_won" ? "🎉" : "💥"}</span>
               <p className="font-bold text-sm leading-relaxed">{feedback}</p>
             </div>
 
@@ -432,16 +535,31 @@ export const DoodleTuddyGame: React.FC<DoodleTuddyGameProps> = ({
         )}
       </div>
 
-      {/* Completion */}
+      {/* Cloud Options Quick Reference */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        {currentRound.options.slice(0, 3).map((opt, idx) => (
+          <div
+            key={idx}
+            className="p-2.5 rounded-xl border bg-slate-800/60 border-slate-700 text-slate-200 flex items-center gap-2.5"
+          >
+            <span className="w-6 h-6 rounded-lg bg-lime-500 text-slate-950 font-black flex items-center justify-center shrink-0">
+              {["A", "B", "C"][idx]}
+            </span>
+            <span className="font-semibold line-clamp-2">{opt}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Completion Modal */}
       {isCompleted && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-lime-500 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl flex flex-col items-center gap-4">
             <div className="w-20 h-20 rounded-3xl bg-lime-500/20 border-2 border-lime-400 flex items-center justify-center text-4xl shadow-inner">
               🦘
             </div>
-            <h3 className="text-2xl font-black text-white">¡Cima Alcanzada con Éxito!</h3>
+            <h3 className="text-2xl font-black text-white">¡Cumbre del Conocimiento Alcanzada!</h3>
             <p className="text-xs text-slate-300">
-              Has saltado sobre todas las plataformas verdaderas de <strong className="text-lime-300">{topic}</strong> con Tuddy.
+              Has escalado todas las plataformas dominando cada postulado en <strong className="text-lime-300">{topic}</strong>.
             </p>
             <div className="grid grid-cols-2 gap-3 w-full my-2">
               <div className="bg-white/5 rounded-2xl p-3 border border-white/10">

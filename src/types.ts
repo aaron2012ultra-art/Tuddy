@@ -62,6 +62,16 @@ export interface StudyNote {
   fileAttachmentName?: string;
   imageUrl?: string;
   imageAnalysis?: ImageAnalysisData;
+  savedAudio?: {
+    audioTitle: string;
+    mode: "study" | "review";
+    durationEstimate?: string;
+    spokenScript: string;
+    sections?: Array<{ title: string; text: string }>;
+    keyTakeaways?: string[];
+    tuddyMascotTip?: string;
+    createdAt: string;
+  };
   tags: string[];
   createdAt: string;
   updatedAt: string;

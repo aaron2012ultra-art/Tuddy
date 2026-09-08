@@ -346,9 +346,10 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
         });
 
         // Draw food letters
+        const isRevealedSnake = gameState === "round_won" || gameState === "lost";
         s.entities.forEach((item) => {
           if (!item.active) return;
-          ctx.fillStyle = item.isCorrect ? "#10B981" : "#F59E0B";
+          ctx.fillStyle = (isRevealedSnake && item.isCorrect) ? "#10B981" : "#F59E0B";
           ctx.beginPath();
           ctx.arc(item.x * cellSize + 11, item.y * cellSize + 11, 14, 0, Math.PI * 2);
           ctx.fill();
@@ -402,9 +403,11 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
           ctx.save();
           ctx.translate(item.x, item.y);
 
-          // Card box
-          ctx.fillStyle = item.isCorrect ? "#065F46" : "#1E293B";
-          ctx.strokeStyle = item.isCorrect ? "#10B981" : "#64748B";
+          // Card box: neutral cyan/slate during play, reveals result on round win/loss
+          const isFinished = gameState === "round_won" || gameState === "lost";
+          const isCorrectAndFinished = isFinished && item.isCorrect;
+          ctx.fillStyle = isCorrectAndFinished ? "#065F46" : "#1E293B";
+          ctx.strokeStyle = isCorrectAndFinished ? "#10B981" : "#38BDF8";
           ctx.lineWidth = 2.5;
           ctx.beginPath();
           ctx.roundRect(-75, -28, 150, 56, 12);
