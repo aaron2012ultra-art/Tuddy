@@ -29,3 +29,127 @@
   background: #d4cdc3;
 }
 
+/* Academic Document Printing Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 12mm 15mm;
+  }
+
+  /* Hide everything on the page by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Only make the academic printable document and its children visible */
+  #academic-printable-document,
+  #academic-printable-document * {
+    visibility: visible;
+  }
+
+  /* Position printable document at the very top of printed page */
+  #academic-printable-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-family: 'Times New Roman', Times, 'Outfit', serif !important;
+    box-shadow: none !important;
+  }
+
+  .no-print,
+  button,
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Avoid breaking questions or flashcards across printed pages */
+  .academic-item,
+  .academic-question,
+  .academic-card-cutout,
+  .academic-break-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .academic-page-break {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  /* Ensure crisp black ink printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Chat Markdown Formatting */
+.markdown-body {
+  word-break: break-word;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1rem 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8125rem;
+}
+.markdown-body th {
+  background-color: #f8fafc;
+  font-weight: 700;
+  text-align: left;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 2px solid #cbd5e1;
+  color: #0f172a;
+}
+.markdown-body td {
+  padding: 0.5rem 0.875rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+.markdown-body tr:last-child td {
+  border-bottom: none;
+}
+.markdown-body tr:nth-child(even) td {
+  background-color: #fafbfc;
+}
+.markdown-body pre {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.markdown-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.markdown-body :not(pre) > code {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.375rem;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+.markdown-body blockquote {
+  border-left: 3px solid #f59e0b;
+  background-color: #fffbeb;
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: #78350f;
+  font-style: italic;
+}
+

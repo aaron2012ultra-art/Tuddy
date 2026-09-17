@@ -14,6 +14,7 @@ interface TuddyMascotProps {
   carrotCoins?: number;
   pet?: PetCustomization;
   onOpenCustomizer?: () => void;
+  onOpenTuddyACI?: () => void;
 }
 
 const PERSONALITY_TIPS = {
@@ -46,6 +47,7 @@ export const TuddyMascot: React.FC<TuddyMascotProps> = ({
   carrotCoins = 0,
   pet = DEFAULT_PET,
   onOpenCustomizer,
+  onOpenTuddyACI,
 }) => {
   const [currentMood, setCurrentMood] = useState<TuddyMood["expression"]>(mood);
   const [tipIndex, setTipIndex] = useState(0);
@@ -179,6 +181,18 @@ export const TuddyMascot: React.FC<TuddyMascotProps> = ({
               </button>
             ) : null}
           </div>
+
+          {onOpenTuddyACI && (
+            <button
+              type="button"
+              id="mascot-open-tuddyaci-btn"
+              onClick={onOpenTuddyACI}
+              className="w-full mt-2.5 py-2 px-3 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>Chatear en TuddyACI (IA Avanzada)</span>
+            </button>
+          )}
         </motion.div>
       </AnimatePresence>
 

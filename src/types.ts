@@ -20,6 +20,8 @@ export interface WorkspaceTab {
   noteId?: string;
   customTopic?: string;
   gameId?: string;
+  examQuestions?: ExamQuestion[];
+  autoStartExam?: boolean;
 }
 
 export interface Flashcard {
@@ -445,5 +447,58 @@ export interface GeneratedGameContent {
   instructions: string;
   rounds: any[];
   extraData?: Record<string, any>;
+}
+
+export interface GeneratedExamTool {
+  type: "exam";
+  title: string;
+  topic: string;
+  description?: string;
+  difficulty?: "easy" | "intermediate" | "hard" | "simulated_exam";
+  questions: ExamQuestion[];
+  recommendedTimeMinutes?: number;
+  accuracyVerified?: boolean;
+  verificationNotes?: string;
+}
+
+export interface GeneratedFlashcardsTool {
+  type: "flashcards";
+  title: string;
+  subject?: string;
+  deckName?: string;
+  cards: Array<{ front: string; back: string; category?: string; hint?: string }>;
+}
+
+export interface GeneratedNoteTool {
+  type: "note";
+  title: string;
+  subject?: string;
+  content: string;
+  tags?: string[];
+}
+
+export type GeneratedChatTool = GeneratedExamTool | GeneratedFlashcardsTool | GeneratedNoteTool;
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "model";
+  content: string;
+  timestamp: string;
+  mode?: string;
+  specialInstruction?: string;
+  requiresPlus?: boolean;
+  plusReason?: string;
+  suggestedActions?: Array<{ label: string; action: string; prompt?: string }>;
+  generatedTool?: GeneratedChatTool;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+  pinned?: boolean;
+  subject?: string;
 }
 

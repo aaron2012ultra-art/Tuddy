@@ -858,6 +858,256 @@ Piensa en ${topic} como los engranajes de un reloj suizo: cada pequeña pieza cu
   }
 });
 
+// 3.5. Intelligent Multi-Turn AI Chat & Advanced Study Copilot
+app.post("/api/ai/chat", async (req: Request, res: Response) => {
+  try {
+    const {
+      messages = [],
+      isPro = false,
+      mode = "general",
+      specialInstruction = "",
+      notesContext = "",
+      petName = "Tuddy",
+    } = req.body;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      res.status(400).json({ error: "No se proporcionaron mensajes en la conversación." });
+      return;
+    }
+
+    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+    const lowerQuery = lastUserMessage.toLowerCase();
+
+    // 1. Plus Limitation Guard:
+    // When the user is NOT on Plus (!isPro) and asks to generate 100 questions exam / 100-question test:
+    const isAskingFor100Questions = 
+      (/\b(100|cien)\s*(preguntas|questions|items|reactivos|ejercicios)\b/i.test(lowerQuery) ||
+       /\b(examen|test|simulacro|quiz|cuestionario|prueba)\s*(de|con)?\s*(100|cien)\b/i.test(lowerQuery) ||
+       /\b(generar|haz|hazme|crea|crear|dame|ponme)\s*(un\s*)?(examen|test|simulacro)\s*(de\s*)?(100|cien)\b/i.test(lowerQuery) ||
+       (/\b100\b/.test(lowerQuery) && /\b(preguntas|test|examen|simulacro)\b/i.test(lowerQuery)));
+
+    const isAskingForMassiveBatch =
+      (/\b([3-9][0-9]|[1-9][0-9]{2,})\s*(preguntas|questions|fichas|flashcards)\b/i.test(lowerQuery) &&
+       !/\b(5|10|15|20)\b/.test(lowerQuery));
+
+    if (!isPro && (isAskingFor100Questions || isAskingForMassiveBatch)) {
+      res.json({
+        text: `🐰 ¡Hola! Como tu compañero y tutor de estudio me encantaría preparar todo lo que me pides, pero **generar un examen masivo de 100 preguntas** (o pruebas de alta capacidad que exceden el límite estándar) es una función que solo puedes realizar nativamente con **Tuddy Plus** 👑.
+
+### 💡 ¿Por qué esta función requiere Tuddy Plus?
+Un examen completo de 100 preguntas con justificaciones y banco dinámico requiere la infraestructura de cómputo y rúbricas avanzadas exclusiva de **Tuddy Plus**.
+
+### ✨ ¿Qué podemos hacer ahora mismo en tu plan actual?
+1. **Simulacro Rápido en este Chat (Gratis)**: Puedo formularte ahora mismo una batería intensiva de **5 a 10 preguntas clave** tipo test o desarrollo sobre este tema, con retroalimentación inmediata paso a paso.
+2. **Simulador de Exámenes**: Puedes dirigirte al módulo de **Exámenes** en la barra superior para configurar un test estándar de hasta **15 preguntas** con cronómetro y modo formal imprimible en PDF.
+
+¿Te gustaría que te prepare ahora mismo una batería de 5 o 10 preguntas de práctica sobre este tema?`,
+        requiresPlus: true,
+        plusReason: "exams_100",
+        suggestedActions: [
+          { label: "👑 Desbloquear Tuddy Plus ($3.50/mes)", action: "open_plus_modal" },
+          { label: "🥕 Hacer test rápido de 5 preguntas (Gratis)", action: "send_prompt", prompt: `Genérame un examen rápido de 5 preguntas de práctica sobre este tema con opciones múltiples y justificación didáctica.` }
+        ]
+      });
+      return;
+    }
+
+    // Build system instructions for Gemini
+    let modeGuidance = "";
+    switch (mode) {
+      case "feynman":
+        modeGuidance = "Modo Técnica Feynman: Explica con metáforas cotidianas, lenguaje cristalino, sin tecnicismos innecesarios, como para un niño de 10 años.";
+        break;
+      case "academic":
+        modeGuidance = "Modo Académico Riguroso: Proporciona definiciones exactas, contexto teórico, marco conceptual universitario, rigor metodológico y fuentes formales.";
+        break;
+      case "step_by_step":
+        modeGuidance = "Modo Paso a Paso: Desglosa todo el procedimiento en etapas numeradas con ejemplos claros resueltos y advertencias de errores frecuentes.";
+        break;
+      case "socratic":
+        modeGuidance = "Modo Socrático: No des la respuesta directa de golpe; guía al estudiante haciéndole preguntas reflexivas para que deduzca la solución por sí mismo.";
+        break;
+      case "expert_quiz":
+        modeGuidance = "Modo Entrenador de Práctica: Formula preguntas de chequeo dinámicas con opciones o preguntas abiertas para poner a prueba al estudiante.";
+        break;
+      default:
+        modeGuidance = "Modo Tutor Inteligente: Respuesta pedagógica, directa, motivadora, clara y estructurada.";
+    }
+
+    let proStatusGuidance = isPro
+      ? `👑 EL ESTUDIANTE TIENE TUDDY PLUS ACTIVO (isPro=true). Puedes atender solicitudes académicas de alta complejidad y extensión, reconociendo su membresía Plus con calidez.`
+      : `⚠️ EL ESTUDIANTE ESTÁ EN EL PLAN GRATUITO (isPro=false).
+REGLA INQUEBRANTABLE: Si el usuario te pide explícitamente generar un examen masivo de 100 preguntas, o una prueba con más de 20 preguntas masivas, o un lote de 100 fichas, o funciones exclusivas del simulador nativo Tuddy Plus, NO lo generes. Debes responder amablemente que para un examen masivo de 100 preguntas se requiere Tuddy Plus 👑, explicar qué alternativas gratuitas tiene (un test de 5 a 10 preguntas en este chat o hasta 15 en el módulo Exámenes), e incluir al final de tu respuesta el código [REQUIRES_PLUS:exams_100].`;
+
+    const systemInstruction = `Eres ${petName} (TuddyACI: Tuddy Advanced Chat Intelligence), un conejito tutor de estudio hiperinteligente, simpático, riguroso y altamente capacitado.
+Eres capaz de atender solicitudes ultra específicas y avanzadas de estudio:
+- Brindar explicaciones de cualquier materia con máxima precisión pedagógica.
+- Seguir especificaciones detalladas del usuario (por ejemplo: "hazlo en formato tabla comparativa", "resuelve este ejercicio justificando cada paso", "dame una regla mnemotécnica en verso", "haz un resumen en exactamente 5 puntos clave").
+- Formatear con Markdown impecable: negritas, listas ordenadas, tablas (| col1 | col2 |), bloques de código con sintaxis, y fórmulas matemáticas claras.
+- Si el usuario te pide algo específico, CÚMPLELO A LA PERFECCIÓN según sus directivas.
+
+DIRECTIVA CLAVE: GENERACIÓN COMPLETA E INMEDIATA ("DE UNA VEZ QUE SOLO ENTRE Y LA TENGA HECHA PARA HACER"):
+El estudiante busca máxima agilidad pedagógica. Cuando solicite una práctica, examen, test, nota, apunte, resumen o fichas:
+¡NO hagas preguntas de confirmación ni pidas aclaraciones previas! ¡CRÉALA DE UNA VEZ COMPLETA Y LISTA PARA USAR DIRECTAMENTE!
+El objetivo es que el estudiante solo tenga que entrar al módulo o pulsar el botón y TODO esté 100% armado, resuelto o estructurado para estudiar o resolver.
+
+HERRAMIENTAS INTERACTIVAS DISPONIBLES:
+1. PRÁCTICA / EXAMEN / SIMULACRO / TEST:
+Si te pide "haz una práctica", "hazme un examen", "haz un test", "ponme a prueba", "hazme un simulacro" o pide corregir uno existente:
+- Escribe una breve introducción motivadora y rigurosa.
+- Genera AL FINAL el bloque \`\`\`json:tuddy_tool con type "exam":
+\`\`\`json:tuddy_tool
+{
+  "type": "exam",
+  "title": "Título descriptivo del examen",
+  "topic": "Tema principal",
+  "difficulty": "easy" | "intermediate" | "hard" | "simulated_exam",
+  "recommendedTimeMinutes": 10,
+  "accuracyVerified": true,
+  "verificationNotes": "100% verificado: rigor conceptual, opciones consistentes y sin ambigüedades.",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple_choice",
+      "question": "Enunciado claro y preciso...",
+      "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
+      "correctAnswer": "Opción A (debe coincidir textualmente con una de las opciones)",
+      "explanation": "Explicación detallada de por qué es correcta...",
+      "hint": "Pista orientadora...",
+      "points": 10
+    }
+  ]
+}
+\`\`\`
+Genera de 5 a 8 preguntas completas para que el simulador empiece de una vez.
+
+2. RESUMEN / NOTA / APUNTES / GUÍA DE ESTUDIO:
+Si te pide "haz un resumen", "hazme una nota", "hazme los apuntes", "sintetiza este tema", "prepara una guía":
+- En tu texto normal, redacta el resumen de manera brillante con Markdown pedagógico (subtítulos, puntos clave, tablas comparativas si aplican, y mnemotecnias).
+- Al final, genera el bloque \`\`\`json:tuddy_tool con type "note":
+\`\`\`json:tuddy_tool
+{
+  "type": "note",
+  "title": "Título del Resumen / Apunte",
+  "subject": "Materia o tema principal",
+  "content": "Contenido completo estructurado en Markdown con encabezados, puntos clave, explicaciones y conclusiones...",
+  "tags": ["resumen", "apuntes", "tema"]
+}
+\`\`\`
+El sistema lo guardará automáticamente en las Notas del estudiante para que al entrar ya esté listo para leer, estudiar o escuchar con el audio de Tuddy.
+
+3. FICHAS DE ESTUDIO / FLASHCARDS / TARJETAS MNEMOTÉCNICAS:
+Si te pide "fichas de estudio", "flashcards", "tarjetas para memorizar":
+- Genera el bloque \`\`\`json:tuddy_tool con type "flashcards" (mínimo 5-8 fichas con conceptos clave y respuestas precisas):
+\`\`\`json:tuddy_tool
+{
+  "type": "flashcards",
+  "title": "Fichas: Tema",
+  "deckName": "Materia / Tema",
+  "cards": [
+    { "front": "Concepto o pregunta", "back": "Definición o respuesta concisa", "hint": "Pista opcional" }
+  ]
+}
+\`\`\`
+
+4. CORRECCIÓN Y REFINAMIENTO:
+Si el usuario te pide: "arregla el error en la pregunta 2", "cambia la opción C", "haz el examen más difícil", "agrega 3 preguntas más":
+Explica claramente los cambios realizados y genera la herramienta completa con las correcciones aplicadas para que quede lista de una vez.
+
+¡REGLA DE ORO DE RIGOR Y PRECISIÓN!:
+Distractores pedagógicos impecables, respuestas exactas y contenido 100% útil para que el estudiante aprenda sin fricción.
+
+ESTILO PEDAGÓGICO:
+${modeGuidance}
+
+${specialInstruction ? `DIRECTIVA ESPECÍFICA DEL ESTUDIANTE:\n"${specialInstruction}"\n¡Debes priorizar y cumplir esta directiva estrictamente en tu respuesta!\n` : ""}
+${notesContext ? `NOTAS / APUNTES DEL ESTUDIANTE:\n"""${notesContext.slice(0, 3500)}"""\n` : ""}
+
+ESTADO DE SUSCRIPCIÓN Y LIMITACIONES NATIVAS:
+${proStatusGuidance}`;
+
+    // Format conversation history for Gemini
+    const contents: any[] = [];
+    for (const msg of messages) {
+      const role = (msg.role === "assistant" || msg.role === "model") ? "model" : "user";
+      contents.push({
+        role,
+        parts: [{ text: String(msg.content || "") }],
+      });
+    }
+
+    const aiRes = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      },
+    });
+
+    let rawText = aiRes.text || "No pude generar la respuesta. Por favor intenta de nuevo.";
+    let requiresPlus = false;
+    let plusReason: string | undefined;
+
+    if (rawText.includes("[REQUIRES_PLUS:exams_100]")) {
+      requiresPlus = true;
+      plusReason = "exams_100";
+      rawText = rawText.replace(/\[REQUIRES_PLUS:exams_100\]/g, "").trim();
+    }
+
+    let generatedTool: any = undefined;
+
+    // Check for ```json:tuddy_tool ... ``` or ```tuddy_tool ... ```
+    const toolRegex = /```(?:json:tuddy_tool|tuddy_tool)\s*([\s\S]*?)\s*```/;
+    const toolMatch = rawText.match(toolRegex);
+
+    if (toolMatch) {
+      try {
+        const parsed = JSON.parse(toolMatch[1].trim());
+        if (parsed && (parsed.type === "exam" || parsed.type === "flashcards" || parsed.type === "note")) {
+          generatedTool = parsed;
+          rawText = rawText.replace(toolMatch[0], "").trim();
+        }
+      } catch (e) {
+        console.warn("Could not parse json:tuddy_tool:", e);
+      }
+    } else {
+      // Fallback: check if standard ```json contains "type": "exam" | "flashcards" | "note"
+      const genericJsonRegex = /```json\s*(\{[\s\S]*?"type"\s*:\s*"(?:exam|flashcards|note)"[\s\S]*?\})\s*```/;
+      const genericMatch = rawText.match(genericJsonRegex);
+      if (genericMatch) {
+        try {
+          const parsed = JSON.parse(genericMatch[1].trim());
+          if (parsed && (parsed.type === "exam" || parsed.type === "flashcards" || parsed.type === "note")) {
+            generatedTool = parsed;
+            rawText = rawText.replace(genericMatch[0], "").trim();
+          }
+        } catch (e) {
+          console.warn("Could not parse generic json tool:", e);
+        }
+      }
+    }
+
+    res.json({
+      text: rawText,
+      generatedTool,
+      requiresPlus,
+      plusReason,
+      suggestedActions: requiresPlus ? [
+        { label: "👑 Desbloquear Tuddy Plus ($3.50/mes)", action: "open_plus_modal" },
+        { label: "🥕 Hacer test rápido de 5 preguntas (Gratis)", action: "send_prompt", prompt: `Genérame un examen rápido de 5 preguntas sobre este tema.` }
+      ] : undefined
+    });
+  } catch (error: any) {
+    console.error("Error in /api/ai/chat:", error);
+    // Graceful fallback response
+    res.json({
+      text: `🐰 ¡Hola! He procesado tu solicitud. Para avanzar con mayor precisión, indícame qué aspecto específico te gustaría que detallemos o si prefieres un desglose paso a paso.`,
+      requiresPlus: false,
+    });
+  }
+});
+
 // 4. AI Quiz & Simulated Exam Generator
 app.post("/api/ai/generate-quiz", async (req: Request, res: Response) => {
   try {

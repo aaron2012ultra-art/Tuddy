@@ -723,10 +723,23 @@ export const AngryTuddyGame: React.FC<AngryTuddyGameProps> = ({
           className="w-full max-w-full h-auto cursor-crosshair touch-none"
         />
 
-        {/* Feedback Overlay upon Hit */}
-        {feedback && (
+        {/* In-Game Warning Banner when aiming next shot */}
+        {feedback && gameState === "aiming" && (
+          <div className="absolute top-4 left-4 right-4 p-3 rounded-2xl backdrop-blur-md shadow-xl flex items-center justify-between gap-3 border bg-amber-950/85 border-amber-500/60 text-amber-100 z-10 pointer-events-none">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <p className="font-bold text-xs sm:text-sm leading-relaxed">{feedback}</p>
+            </div>
+            <div className="flex items-center gap-1 bg-black/40 px-2.5 py-1 rounded-xl text-xs font-bold text-amber-300 border border-white/10 shrink-0">
+              <span>{shotsLeft} tiros</span>
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Overlay upon Final Hit or Out of Shots */}
+        {feedback && (gameState === "hit_correct" || gameState === "out_of_shots") && (
           <div
-            className={`absolute bottom-4 left-4 right-4 p-4 rounded-2xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 border ${
+            className={`absolute bottom-4 left-4 right-4 p-4 rounded-2xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 border z-20 ${
               gameState === "hit_correct"
                 ? "bg-emerald-950/85 border-emerald-500/60 text-emerald-100"
                 : "bg-rose-950/85 border-rose-500/60 text-rose-100"

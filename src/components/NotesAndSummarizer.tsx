@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   FileText, 
@@ -43,6 +43,7 @@ interface NotesAndSummarizerProps {
   onRewardCarrot: (amount: number) => void;
   onTuddyCheer?: (message: string) => void;
   pet?: PetCustomization;
+  initialNoteId?: string;
 }
 
 export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
@@ -53,9 +54,16 @@ export const NotesAndSummarizer: React.FC<NotesAndSummarizerProps> = ({
   onRewardCarrot,
   onTuddyCheer,
   pet = DEFAULT_PET,
+  initialNoteId,
 }) => {
   const { t } = useTranslation();
-  const [selectedNoteId, setSelectedNoteId] = useState<string>(notes[0]?.id || "");
+  const [selectedNoteId, setSelectedNoteId] = useState<string>(initialNoteId || notes[0]?.id || "");
+
+  useEffect(() => {
+    if (initialNoteId && notes.some((n) => n.id === initialNoteId)) {
+      setSelectedNoteId(initialNoteId);
+    }
+  }, [initialNoteId, notes]);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editSubject, setEditSubject] = useState("");

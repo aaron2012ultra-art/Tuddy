@@ -24,7 +24,9 @@ import {
   Crown,
   Headphones,
   Zap,
-  BookOpen
+  BookOpen,
+  Printer,
+  GraduationCap
 } from "lucide-react";
 import { ExamQuestion, ExamConfig, ExamSession, PetCustomization } from "../types";
 import { AnthropomorphicBunny, PetAvatar } from "./AnthropomorphicBunny";
@@ -32,10 +34,14 @@ import { DEFAULT_PET } from "../utils/storage";
 import { useTranslation } from "../utils/translations";
 import confetti from "canvas-confetti";
 import { TuddyAudioPlayer, TuddyAudioData } from "./TuddyAudioPlayer";
+import { AcademicExamPrintModal } from "./AcademicExamPrintModal";
 
 interface ExamSimulatorProps {
   initialTopic?: string;
   initialNotes?: string;
+  initialQuestions?: ExamQuestion[];
+  initialExamTitle?: string;
+  autoStart?: boolean;
   onSaveExamResult: (session: ExamSession) => void;
   onRewardCarrot: (amount: number) => void;
   onTuddyCheer?: (message: string) => void;
@@ -47,6 +53,9 @@ interface ExamSimulatorProps {
 export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
   initialTopic = "",
   initialNotes = "",
+  initialQuestions,
+  initialExamTitle = "",
+  autoStart = false,
   onSaveExamResult,
   onRewardCarrot,
   onTuddyCheer,
@@ -73,11 +82,30 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
 
   // Exam state
   const [isGenerating, setIsGenerating] = useState(false);
-  const [examActive, setExamActive] = useState(false);
+  const [examActive, setExamActive] = useState(Boolean(autoStart && initialQuestions && initialQuestions.length > 0));
   const [examCompleted, setExamCompleted] = useState(false);
-  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
-  const [examTitle, setExamTitle] = useState("");
-  const [tuddyTip, setTuddyTip] = useState("");
+  const [questions, setQuestions] = useState<ExamQuestion[]>(initialQuestions || []);
+  const [examTitle, setExamTitle] = useState(initialExamTitle || "");
+  const [tuddyTip, setTuddyTip] = useState(initialQuestions && initialQuestions.length > 0 ? "¡Examen preparado por TuddyACI! Verificado y listo para resolver 🐰🔥" : "");
+
+  // Preloaded questions effect
+  useEffect(() => {
+    if (initialQuestions && initialQuestions.length > 0) {
+      setQuestions(initialQuestions);
+      const title = initialExamTitle || (initialTopic ? `Simulacro: ${initialTopic}` : "Examen de TuddyACI");
+      setExamTitle(title);
+      setTuddyTip("¡Examen preparado por TuddyACI! Verificado, preciso y listo para resolver 🐰🔥");
+      setUserAnswers({});
+      setRevealedHints({});
+      setCurrentIndex(0);
+      setSecondsRemaining(timeLimitMinutes * 60);
+      if (autoStart) {
+        setExamActive(true);
+        setTimerActive(true);
+        setExamCompleted(false);
+      }
+    }
+  }, [initialQuestions, initialExamTitle, initialTopic, autoStart, timeLimitMinutes]);
 
   // Running exam
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -97,6 +125,10 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
   const [audioLoadingMode, setAudioLoadingMode] = useState<"study" | "review" | null>(null);
   const [showExamAudioPlayer, setShowExamAudioPlayer] = useState(true);
   const [speakingText, setSpeakingText] = useState<string | null>(null);
+
+  // Academic PDF Print Modal state
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isGeneratingForPdf, setIsGeneratingForPdf] = useState(false);
 
   const speakText = (text: string) => {
     if (!("speechSynthesis" in window)) return;
@@ -214,6 +246,17 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
 
   // Generate Exam
   const handleStartExam = async () => {
+    if (questions.length > 0 && initialQuestions && initialQuestions.length > 0) {
+      setUserAnswers({});
+      setRevealedHints({});
+      setCurrentIndex(0);
+      setSecondsRemaining(timeLimitMinutes * 60);
+      setExamActive(true);
+      setTimerActive(true);
+      setExamCompleted(false);
+      return;
+    }
+
     if (!topic.trim() && !notesSource.trim()) {
       alert("Por favor escribe un tema o pega tus notas.");
       return;
@@ -257,6 +300,49 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
       alert("Error al contactar con el generador de exámenes de Tuddy.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleOpenPrintModal = async () => {
+    if (questions.length > 0) {
+      setIsPrintModalOpen(true);
+      return;
+    }
+
+    if (!topic.trim() && !notesSource.trim()) {
+      alert("Por favor escribe un tema o notas de estudio para generar tu examen formal en PDF.");
+      return;
+    }
+
+    setIsGeneratingForPdf(true);
+    try {
+      const res = await fetch("/api/ai/generate-quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic,
+          notes: notesSource,
+          questionCount: effectiveQuestionCount,
+          questionTypes: selectedTypes,
+          difficulty,
+          includeVisualPrompts: includeVisuals,
+          timeLimitMinutes,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+        setQuestions(data.questions);
+        setExamTitle(data.title || `Examen Formal: ${topic}`);
+        setIsPrintModalOpen(true);
+      } else {
+        alert("No se pudieron generar preguntas para el examen imprimible. Intenta con otro tema.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al generar las preguntas para el examen formal.");
+    } finally {
+      setIsGeneratingForPdf(false);
     }
   };
 
@@ -398,12 +484,34 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
           </p>
         </div>
 
-        {examActive && (
-          <div className="flex items-center gap-2 rounded-2xl bg-amber-500 text-white px-4 py-2 text-sm font-bold shadow-xs">
-            <Clock className="h-4 w-4 animate-pulse" />
-            <span>{t.minutes}: {formatTimer(secondsRemaining)}</span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            disabled={isGeneratingForPdf}
+            onClick={handleOpenPrintModal}
+            className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-300 hover:border-slate-400 text-slate-800 hover:text-slate-950 px-4 py-2 text-xs font-bold shadow-2xs hover:bg-slate-50 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            title="Generar e imprimir examen en formato académico formal (A4, PDF)"
+          >
+            {isGeneratingForPdf ? (
+              <>
+                <RotateCw className="h-4 w-4 animate-spin text-amber-500" />
+                <span>Preparando PDF...</span>
+              </>
+            ) : (
+              <>
+                <GraduationCap className="h-4 w-4 text-amber-600" />
+                <span>📄 Examen en PDF (Formato Oficial)</span>
+              </>
+            )}
+          </button>
+
+          {examActive && (
+            <div className="flex items-center gap-2 rounded-2xl bg-amber-500 text-white px-4 py-2 text-sm font-bold shadow-xs">
+              <Clock className="h-4 w-4 animate-pulse" />
+              <span>{t.minutes}: {formatTimer(secondsRemaining)}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* VIEW 1: CONFIGURATION PANEL */}
@@ -727,11 +835,31 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
               )}
             </div>
 
-            {/* Submit / Launch Button */}
-            <div className="pt-3">
+            {/* TuddyACI Pre-loaded notice if questions present */}
+            {initialQuestions && initialQuestions.length > 0 && (
+              <div className="rounded-2xl bg-purple-50 border-2 border-purple-200 p-3.5 flex items-center justify-between gap-3 text-xs text-purple-950">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">✨</span>
+                  <div>
+                    <span className="font-bold block">Examen preparado por TuddyACI ({questions.length} preguntas)</span>
+                    <span className="text-[11px] text-purple-800">Listo para resolver o imprimir directamente con rigor académico</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleStartExam}
+                  className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 font-bold shadow-xs cursor-pointer transition-colors"
+                >
+                  Resolver Ahora
+                </button>
+              </div>
+            )}
+
+            {/* Submit / Launch Buttons */}
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                disabled={isGenerating || !topic.trim()}
+                disabled={isGenerating || (!topic.trim() && questions.length === 0)}
                 onClick={handleStartExam}
                 className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-3.5 text-sm font-bold text-white shadow-md hover:from-amber-600 hover:to-orange-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
@@ -740,10 +868,34 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
                     <RotateCw className="h-4 w-4 animate-spin" />
                     <span>{t.generatingExam}</span>
                   </>
+                ) : questions.length > 0 && initialQuestions && initialQuestions.length > 0 ? (
+                  <>
+                    <Flame className="h-4 w-4 text-amber-200" />
+                    <span>Resolver Examen de TuddyACI ({questions.length} preguntas)</span>
+                  </>
                 ) : (
                   <>
                     <Flame className="h-4 w-4 text-amber-200" />
                     <span>{t.startExam}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={isGeneratingForPdf || !topic.trim()}
+                onClick={handleOpenPrintModal}
+                className="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 py-3.5 text-sm font-bold text-white shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isGeneratingForPdf ? (
+                  <>
+                    <RotateCw className="h-4 w-4 animate-spin text-amber-400" />
+                    <span>Generando Examen Académico...</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer className="h-4 w-4 text-amber-400" />
+                    <span>📄 Generar Examen PDF (Para Imprimir)</span>
                   </>
                 )}
               </button>
@@ -1215,6 +1367,15 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 type="button"
+                onClick={() => setIsPrintModalOpen(true)}
+                className="rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 py-2.5 text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Printer className="h-4 w-4" />
+                <span>📄 Imprimir / Descargar Examen con Solucionario (PDF)</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setExamCompleted(false);
                   setExamActive(false);
@@ -1306,6 +1467,19 @@ export const ExamSimulator: React.FC<ExamSimulatorProps> = ({
           </div>
         </div>
       )}
+
+      {/* Academic Exam PDF & Print Modal */}
+      <AcademicExamPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        examTitle={examTitle || topic}
+        topic={topic}
+        questions={questions}
+        timeLimitMinutes={timeLimitMinutes}
+        userAnswers={userAnswers}
+        finalScore={examCompleted ? finalScore : undefined}
+        maxScore={examCompleted ? maxScore : undefined}
+      />
     </div>
   );
 };

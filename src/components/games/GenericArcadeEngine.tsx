@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { PetCustomization } from "../../types";
 import { drawTuddy } from "./TuddyCanvasDraw";
 import { arcadeAudio } from "./ArcadeAudio";
-import { ArrowLeft, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, HelpCircle, Flame, Zap } from "lucide-react";
+import { ArrowLeft, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, HelpCircle, Flame, Zap, Heart } from "lucide-react";
 
 interface RoundData {
   question: string;
@@ -40,6 +40,7 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
   const [score, setScore] = useState(0);
   const [carrotsEarned, setCarrotsEarned] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
+  const [lives, setLives] = useState(3);
   const [gameState, setGameState] = useState<"playing" | "round_won" | "lost">("playing");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -159,6 +160,7 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
       });
     }
 
+    setLives(3);
     setGameState("playing");
     setFeedback(null);
   }, [gameId, currentRound]);
@@ -189,7 +191,7 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
         arcadeAudio.playVictory();
         setGameState("round_won");
         setScore((sc) => sc + 180);
-        setCarrotsEarned((c) => c + 35);
+        setCarrotsEarned((c) => c + 2);
         setFeedback(`¡K.O.! Has derrotado al Titán demostrando: "${currentRound.correctAnswer}". ${currentRound.explanation}`);
       }
     }
@@ -240,12 +242,21 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
           arcadeAudio.playVictory();
           setGameState("round_won");
           setScore((sc) => sc + 150);
-          setCarrotsEarned((c) => c + 30);
+          setCarrotsEarned((c) => c + 2);
           setFeedback(`¡ACIERTO TOTAL! Elegiste correctamente: "${item.text}". ${currentRound.explanation}`);
         } else {
+          item.active = false;
           arcadeAudio.playWrong();
-          setGameState("lost");
-          setFeedback(`¡Error! Elegiste "${item.text}". La respuesta correcta era "${currentRound.correctAnswer}".`);
+          setLives((l) => {
+            const nl = l - 1;
+            if (nl <= 0) {
+              setGameState("lost");
+              setFeedback(`¡Agotaste tus vidas! Elegiste "${item.text}". La respuesta correcta era "${currentRound.correctAnswer}". ${currentRound.explanation}`);
+            } else {
+              setFeedback(`¡Opción incorrecta [${item.text.slice(0, 15)}]! Te quedan ${nl} vida(s). ¡Sigue buscando!`);
+            }
+            return Math.max(0, nl);
+          });
         }
       }
     });
@@ -297,9 +308,24 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
 
           // Wall collision
           if (newHead.x < 0 || newHead.x > 32 || newHead.y < 0 || newHead.y > 18) {
-            setGameState("lost");
-            arcadeAudio.playWrong();
-            setFeedback(`¡Tuddy chocó con el borde! La respuesta correcta era "${currentRound.correctAnswer}".`);
+            setLives((l) => {
+              const nl = l - 1;
+              if (nl <= 0) {
+                setGameState("lost");
+                arcadeAudio.playWrong();
+                setFeedback(`¡Agotaste tus vidas al chocar! La respuesta correcta era "${currentRound.correctAnswer}". ${currentRound.explanation}`);
+              } else {
+                s.snakeBody = [
+                  { x: 10, y: 10 },
+                  { x: 9, y: 10 },
+                  { x: 8, y: 10 },
+                ];
+                s.snakeDir = { x: 1, y: 0 };
+                arcadeAudio.playWrong();
+                setFeedback(`¡Choque con el muro! Te quedan ${nl} vida(s).`);
+              }
+              return Math.max(0, nl);
+            });
           } else {
             s.snakeBody.unshift(newHead);
 
@@ -313,12 +339,20 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
                   arcadeAudio.playVictory();
                   setGameState("round_won");
                   setScore((sc) => sc + 160);
-                  setCarrotsEarned((c) => c + 30);
+                  setCarrotsEarned((c) => c + 2);
                   setFeedback(`¡DELICIOSA RESPUESTA! Tuddy devoró: "${item.text}". ${currentRound.explanation}`);
                 } else {
                   arcadeAudio.playWrong();
-                  setGameState("lost");
-                  setFeedback(`¡Respuesta errónea! Comiste "${item.text}". La respuesta correcta era "${currentRound.correctAnswer}".`);
+                  setLives((l) => {
+                    const nl = l - 1;
+                    if (nl <= 0) {
+                      setGameState("lost");
+                      setFeedback(`¡Agotaste tus vidas! Comiste "${item.text}". La respuesta correcta era "${currentRound.correctAnswer}". ${currentRound.explanation}`);
+                    } else {
+                      setFeedback(`¡Distractor [${item.text.slice(0, 15)}] comido! Te quedan ${nl} vida(s). ¡Busca el concepto verídico!`);
+                    }
+                    return Math.max(0, nl);
+                  });
                 }
               }
             });
@@ -481,6 +515,10 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
         </div>
 
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 bg-rose-500/20 px-3 py-1.5 rounded-2xl border border-rose-500/40">
+            <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+            <span className="text-sm font-black text-rose-300">{lives}/3</span>
+          </div>
           <div className="flex items-center gap-1.5 bg-amber-500/20 px-3 py-1.5 rounded-2xl border border-amber-500/40">
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-black text-amber-300">{score} pts</span>
@@ -536,9 +574,21 @@ export const GenericArcadeEngine: React.FC<GenericArcadeEngineProps> = ({
           className="w-full max-w-full h-auto touch-none"
         />
 
-        {feedback && (
+        {feedback && gameState === "playing" && (
+          <div className="absolute top-4 left-4 right-4 p-3 rounded-2xl backdrop-blur-md shadow-xl flex items-center justify-between gap-3 border bg-amber-950/85 border-amber-500/60 text-amber-100 z-10 pointer-events-none">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <p className="font-bold text-xs sm:text-sm leading-relaxed">{feedback}</p>
+            </div>
+            <div className="flex items-center gap-1 bg-black/40 px-2.5 py-1 rounded-xl text-xs font-bold text-amber-300 border border-white/10 shrink-0">
+              <span>{lives} vidas</span>
+            </div>
+          </div>
+        )}
+
+        {feedback && (gameState === "round_won" || gameState === "lost") && (
           <div
-            className={`absolute bottom-4 left-4 right-4 p-4 rounded-2xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 border ${
+            className={`absolute bottom-4 left-4 right-4 p-4 rounded-2xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 border z-20 ${
               gameState === "round_won"
                 ? "bg-emerald-950/85 border-emerald-500/60 text-emerald-100"
                 : "bg-rose-950/85 border-rose-500/60 text-rose-100"

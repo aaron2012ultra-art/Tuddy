@@ -13,7 +13,9 @@ import {
   Palette, 
   BookOpen,
   ChevronRight,
-  Gamepad2
+  Gamepad2,
+  Sparkles,
+  BrainCircuit
 } from "lucide-react";
 import { WorkspaceTab, PetCustomization } from "../types";
 import { PetAvatar } from "./AnthropomorphicBunny";
@@ -51,7 +53,7 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
       case "bento": return t.navBento || tab.title;
       case "flashcards": return t.navFlashcards || tab.title;
       case "notes": return t.navNotes || tab.title;
-      case "tutor": return t.navTutor || tab.title;
+      case "tutor": return tab.title?.includes("TuddyACI") ? tab.title : "TuddyACI";
       case "exams": return t.navExams || tab.title;
       case "schedule": return t.navSchedule || tab.title;
       case "languages": return t.navLanguages || tab.title;
@@ -85,7 +87,7 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
       case "notes":
         return <FileText className="w-3.5 h-3.5 text-amber-600" />;
       case "tutor":
-        return <HelpCircle className="w-3.5 h-3.5 text-purple-600" />;
+        return <Sparkles className="w-3.5 h-3.5 text-purple-600" />;
       case "exams":
         return <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20" />;
       case "schedule":
@@ -252,19 +254,28 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
 
                 <button
                   type="button"
+                  id="menu-open-tuddyaci"
                   onClick={() => {
-                    onOpenNewTab("tutor", t.navTutor);
+                    onOpenNewTab("tutor", "TuddyACI");
                     setIsNewMenuOpen(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-[#4A4A4A] hover:bg-[#FAF6F0] hover:text-purple-700 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-purple-900 bg-purple-50/70 hover:bg-purple-100/90 transition-colors text-left border border-purple-200/80 my-0.5"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-6 h-6 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
-                      <HelpCircle className="w-3.5 h-3.5" />
+                    <div className="w-6 h-6 rounded-lg bg-purple-600 flex items-center justify-center text-white shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5" />
                     </div>
-                    <span>{t.navTutor}</span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-extrabold text-purple-950">TuddyACI</span>
+                        <span className="text-[9px] bg-purple-200 text-purple-800 font-bold px-1.5 py-0.2 rounded-full uppercase">
+                          Chat IA
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-purple-700/80 font-normal">Tuddy Advanced Chat Intelligence</p>
+                    </div>
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+                  <ChevronRight className="w-3.5 h-3.5 text-purple-400" />
                 </button>
 
                 <button

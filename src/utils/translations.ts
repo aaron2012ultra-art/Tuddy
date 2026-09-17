@@ -10,6 +10,8 @@ export interface TranslationStrings {
   navFlashcards: string;
   navNotes: string;
   navTutor: string;
+  tuddyAci?: string;
+  tuddyAciFull?: string;
   navExams: string;
   navSchedule: string;
   navLanguages: string;
@@ -272,7 +274,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     navBento: "Inicio Bento",
     navFlashcards: "Fichas",
     navNotes: "Notas & IA",
-    navTutor: "Tutor IA",
+    navTutor: "TuddyACI (Chat IA)",
+    tuddyAci: "TuddyACI",
+    tuddyAciFull: "TuddyACI (Tuddy Advanced Chat Intelligence)",
     navExams: "Exámenes",
     navSchedule: "Horario & Pomodoro",
     navLanguages: "Idiomas",
@@ -522,7 +526,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     navBento: "Bento Home",
     navFlashcards: "Flashcards",
     navNotes: "Notes & AI",
-    navTutor: "AI Tutor",
+    navTutor: "TuddyACI (AI Chat)",
+    tuddyAci: "TuddyACI",
+    tuddyAciFull: "TuddyACI (Tuddy Advanced Chat Intelligence)",
     navExams: "Exams",
     navSchedule: "Schedule & Pomodoro",
     navLanguages: "Languages",

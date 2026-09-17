@@ -32,7 +32,8 @@ import {
   AppSettings,
   SubscriptionStatus,
   UserAccount,
-  AccountBackupData
+  AccountBackupData,
+  ExamQuestion
 } from "./types";
 import { 
   getStoredDecks, 
@@ -117,9 +118,10 @@ export default function App() {
   // Active translation dictionary
   const t = TRANSLATIONS[settings.language] || TRANSLATIONS.es;
 
-  // Navigation & Workspace Tabs - default to Bento Grid dashboard overview
+  // Navigation & Workspace Tabs - default to Bento Grid and TuddyACI
   const [workspaceTabs, setWorkspaceTabs] = useState<WorkspaceTab[]>([
     { id: "tab-bento", type: "bento", title: "Inicio Bento", closable: false },
+    { id: "tab-tutor-default", type: "tutor", title: "TuddyACI", closable: false },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("tab-bento");
 
@@ -146,11 +148,27 @@ export default function App() {
       if (extraData?.deckId && t.deckId === extraData.deckId) return true;
       if (extraData?.noteId && t.noteId === extraData.noteId) return true;
       if (extraData?.customTopic && t.customTopic === extraData.customTopic) return true;
+      if (type === "exams" && extraData?.examQuestions && t.type === "exams") return true;
       if (!extraData && t.type === type && !t.deckId && !t.noteId && !t.customTopic) return true;
       return false;
     });
 
     if (existing) {
+      if (extraData?.examQuestions) {
+        setWorkspaceTabs((prev) =>
+          prev.map((tab) =>
+            tab.id === existing.id
+              ? {
+                  ...tab,
+                  title: customTitle || tab.title,
+                  examQuestions: extraData.examQuestions,
+                  autoStartExam: true,
+                  customTopic: extraData.customTopic || tab.customTopic,
+                }
+              : tab
+          )
+        );
+      }
       setActiveTabId(existing.id);
       return;
     }
@@ -159,7 +177,7 @@ export default function App() {
       bento: "Inicio Bento",
       flashcards: "Fichas de Estudio",
       notes: "Notas & IA",
-      tutor: "Tutor IA",
+      tutor: "TuddyACI",
       exams: "Exámenes",
       schedule: "Horario & Pomodoro",
       languages: "Idiomas",
@@ -177,6 +195,8 @@ export default function App() {
       subject: extraData?.subject,
       noteId: extraData?.noteId,
       customTopic: extraData?.customTopic,
+      examQuestions: extraData?.examQuestions,
+      autoStartExam: extraData?.autoStartExam,
     };
 
     setWorkspaceTabs((prev) => [...prev, newTab]);
@@ -377,6 +397,87 @@ export default function App() {
     handleTuddyCheer(`¡Preparando el examen para "${title}" con ${pet.name}! 🔥`);
   };
 
+  // Launch directly with pre-generated questions from TuddyACI chat
+  const handleSolveExamWithQuestions = (questions: ExamQuestion[], title: string, topic?: string) => {
+    const examTitle = title || (topic ? `Simulacro: ${topic}` : "Examen de TuddyACI");
+    const cleanTopic = topic || title;
+    setExamPrefillTopic(cleanTopic);
+    handleOpenTab("exams", examTitle, {
+      subtitle: "TuddyACI",
+      customTopic: cleanTopic,
+      examQuestions: questions,
+      autoStartExam: true,
+    });
+    confetti({ particleCount: 35, spread: 55, origin: { y: 0.6 } });
+    handleTuddyCheer(`¡Examen de TuddyACI listo! ${questions.length} preguntas cargadas para resolver 🐰🔥`);
+  };
+
+  // Save and practice flashcards generated from TuddyACI chat
+  const handlePracticeFlashcardsFromChat = (cards: Array<{ front: string; back: string; hint?: string }>, deckName?: string) => {
+    const dName = deckName || "Fichas TuddyACI";
+    let targetDeck = decks.find(d => d.name.toLowerCase() === dName.toLowerCase());
+    let deckId = targetDeck ? targetDeck.id : `deck-tuddy-${Date.now()}`;
+
+    if (!targetDeck) {
+      targetDeck = {
+        id: deckId,
+        name: dName,
+        subject: "General",
+        color: "#8B5CF6",
+        description: "Mazo generado por TuddyACI en el chat",
+        createdAt: new Date().toISOString(),
+      };
+      const updatedDecks = [targetDeck, ...decks];
+      setDecks(updatedDecks);
+      saveDecks(updatedDecks);
+    }
+
+    const newFcs: Flashcard[] = cards.map((c, i) => ({
+      id: `fc-tuddy-${Date.now()}-${i}`,
+      deckId,
+      front: c.front,
+      back: c.back,
+      hint: c.hint,
+      tags: ["TuddyACI"],
+      masteryLevel: 0,
+      reviewCount: 0,
+    }));
+
+    const updatedFcs = [...newFcs, ...flashcards];
+    setFlashcards(updatedFcs);
+    saveFlashcards(updatedFcs);
+
+    handleOpenTab("flashcards", dName, { deckId, subtitle: `${cards.length} fichas` });
+    confetti({ particleCount: 30, spread: 50 });
+    handleTuddyCheer(`¡${cards.length} fichas agregadas a "${dName}"! Listas para practicar 🐰✨`);
+  };
+
+  // Open note or summary directly from TuddyACI chat
+  const handleOpenNoteFromChat = (title: string, content: string, subject?: string) => {
+    const existingNote = notes.find((n) => n.title.toLowerCase() === title.toLowerCase());
+    let noteId = existingNote ? existingNote.id : `note-tuddy-${Date.now()}`;
+
+    if (!existingNote) {
+      const newNote: StudyNote = {
+        id: noteId,
+        title,
+        subject: subject || "Tutoría Inteligente",
+        rawContent: content,
+        aiSummary: content,
+        tags: ["resumen", "tuddy", "ia"],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const updatedNotes = [newNote, ...notes];
+      setNotes(updatedNotes);
+      saveNotes(updatedNotes);
+    }
+
+    handleOpenTab("notes", title, { noteId, subject, subtitle: "Resumen Listo" });
+    confetti({ particleCount: 30, spread: 50 });
+    handleTuddyCheer(`¡Tu resumen "${title}" está 100% hecho y listo en Notas! 📝🐰`);
+  };
+
   const navItems = [
     { id: "bento", label: t.navBento || "Inicio Bento", icon: LayoutGrid },
     { id: "flashcards", label: t.navFlashcards || "Fichas", icon: Layers, count: flashcards.length },
@@ -433,6 +534,27 @@ export default function App() {
 
             {/* Right side stats badges & quick action pills */}
             <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Quick TuddyACI Button */}
+              <button
+                type="button"
+                id="top-nav-tuddy-aci-btn"
+                onClick={() => handleOpenTab("tutor", "TuddyACI")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-black transition-all cursor-pointer shadow-xs ${
+                  activeTab === "tutor"
+                    ? "bg-purple-600 text-white border-purple-700 shadow-purple-200 ring-2 ring-purple-300"
+                    : "bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border-purple-200 text-purple-900"
+                }`}
+                title="TuddyACI (Tuddy Advanced Chat Intelligence) - Chat Inteligente IA"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${activeTab === "tutor" ? "text-amber-300" : "text-purple-600"} shrink-0`} />
+                <span>TuddyACI</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold uppercase hidden sm:inline ${
+                  activeTab === "tutor" ? "bg-purple-700 text-purple-100" : "bg-purple-200 text-purple-900"
+                }`}>
+                  Chat IA
+                </span>
+              </button>
+
               {/* Tuddy Plus / VIP Subscription Button */}
               {subscription.isPro ? (
                 <button
@@ -628,8 +750,11 @@ export default function App() {
 
             {activeTab === "flashcards" && (
               <FlashcardsModule
+                key={currentTab.id + "-" + (currentTab.deckId || "all")}
                 decks={decks}
                 flashcards={flashcards}
+                initialDeckId={currentTab.deckId}
+                autoStartPractice={Boolean(currentTab.deckId)}
                 onSaveDecks={handleUpdateDecks}
                 onSaveFlashcards={handleUpdateFlashcards}
                 onRewardCarrot={handleRewardCarrots}
@@ -642,6 +767,8 @@ export default function App() {
 
             {activeTab === "notes" && (
               <NotesAndSummarizer
+                key={currentTab.id + "-" + (currentTab.noteId || "first")}
+                initialNoteId={currentTab.noteId}
                 notes={notes}
                 onSaveNotes={handleUpdateNotes}
                 onLaunchExamFromNote={handleLaunchExamFromNote}
@@ -656,16 +783,30 @@ export default function App() {
                 onSaveAsNote={(newNote) => {
                   handleUpdateNotes([newNote, ...notes]);
                 }}
+                onOpenNoteInWorkspace={handleOpenNoteFromChat}
                 onRewardCarrot={handleRewardCarrots}
                 onTuddyCheer={handleTuddyCheer}
                 pet={pet}
+                isPro={subscription.isPro}
+                onOpenSubscriptionModal={() => handleOpenSubscription("exams")}
+                onLaunchExam={(topic, content) => handleLaunchExamFromNote(topic, content || "")}
+                onSolveExamWithQuestions={handleSolveExamWithQuestions}
+                onPracticeFlashcards={handlePracticeFlashcardsFromChat}
+                onPrintExam={(questions, title) => handleSolveExamWithQuestions(questions, title)}
+                onSaveFlashcards={(newCards) => handleUpdateFlashcards([...flashcards, ...newCards])}
+                decks={decks}
+                notes={notes}
               />
             )}
 
             {activeTab === "exams" && (
               <ExamSimulator
+                key={currentTab.id + "-" + (currentTab.examQuestions ? currentTab.examQuestions.length : "0")}
                 initialTopic={currentTab.customTopic || examPrefillTopic}
                 initialNotes={examPrefillNotes}
+                initialQuestions={currentTab.examQuestions}
+                initialExamTitle={currentTab.title}
+                autoStart={currentTab.autoStartExam}
                 onSaveExamResult={handleSaveExamResult}
                 onRewardCarrot={handleRewardCarrots}
                 onTuddyCheer={handleTuddyCheer}
@@ -816,6 +957,10 @@ export default function App() {
                     handleRewardCarrots(-1);
                     confetti({ particleCount: 25, spread: 45 });
                   }
+                }}
+                onOpenTuddyACI={() => {
+                  setIsMascotModalOpen(false);
+                  handleOpenTab("tutor", "TuddyACI");
                 }}
               />
             </motion.div>

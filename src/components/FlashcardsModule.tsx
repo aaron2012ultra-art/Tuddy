@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Plus, 
@@ -22,7 +22,8 @@ import {
   X,
   ScanText,
   RefreshCw,
-  Tag
+  Tag,
+  Printer
 } from "lucide-react";
 import { Flashcard, Deck, PetCustomization } from "../types";
 import { PetAvatar } from "./AnthropomorphicBunny";
@@ -30,6 +31,7 @@ import { DEFAULT_PET } from "../utils/storage";
 import confetti from "canvas-confetti";
 import { ConfirmModal } from "./ConfirmModal";
 import { useTranslation } from "../utils/translations";
+import { AcademicFlashcardsPrintModal } from "./AcademicFlashcardsPrintModal";
 
 interface FlashcardsModuleProps {
   decks: Deck[];
@@ -41,6 +43,8 @@ interface FlashcardsModuleProps {
   pet?: PetCustomization;
   isPro?: boolean;
   onOpenSubscriptionModal?: () => void;
+  initialDeckId?: string;
+  autoStartPractice?: boolean;
 }
 
 export const FlashcardsModule: React.FC<FlashcardsModuleProps> = ({
@@ -53,14 +57,28 @@ export const FlashcardsModule: React.FC<FlashcardsModuleProps> = ({
   pet = DEFAULT_PET,
   isPro = false,
   onOpenSubscriptionModal,
+  initialDeckId,
+  autoStartPractice,
 }) => {
   const { t } = useTranslation();
-  const [selectedDeckId, setSelectedDeckId] = useState<string>("all");
+  const [selectedDeckId, setSelectedDeckId] = useState<string>(initialDeckId || "all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isStudyMode, setIsStudyMode] = useState(false);
+  const [isStudyMode, setIsStudyMode] = useState(Boolean(autoStartPractice && initialDeckId));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    if (initialDeckId) {
+      setSelectedDeckId(initialDeckId);
+      if (autoStartPractice) {
+        setIsStudyMode(true);
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        setShowHint(false);
+      }
+    }
+  }, [initialDeckId, autoStartPractice]);
 
   // Modal create/edit card
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -96,6 +114,9 @@ export const FlashcardsModule: React.FC<FlashcardsModuleProps> = ({
   const [isAiGenOpen, setIsAiGenOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Academic Printable PDF modal
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const cardImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -486,6 +507,16 @@ export const FlashcardsModule: React.FC<FlashcardsModuleProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPrintModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-xs hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+            title="Exportar o imprimir fichas en formato académico formal (A4, PDF)"
+          >
+            <Printer className="h-4 w-4 text-emerald-600" />
+            <span>📄 Fichas en PDF</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsAiGenOpen(true)}
@@ -1457,6 +1488,15 @@ export const FlashcardsModule: React.FC<FlashcardsModuleProps> = ({
         isDanger={true}
         onConfirm={confirmModalState.action}
         onCancel={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Academic Flashcards Printable PDF Modal */}
+      <AcademicFlashcardsPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        decks={decks}
+        flashcards={flashcards}
+        selectedDeckId={selectedDeckId}
       />
     </div>
   );

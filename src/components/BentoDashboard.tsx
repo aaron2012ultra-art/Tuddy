@@ -100,46 +100,92 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
         </div>
       </div>
 
-      {/* FEATURED: MODELOS DE JUEGO ADAPTATIVOS DE TUDDY AI */}
-      <div 
-        onClick={() => onNavigate("games")}
-        className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-3xl p-5 text-white shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-all group border-2 border-white"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-13 h-13 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white text-2xl group-hover:scale-105 transition-transform shrink-0">
-            🎮
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2.5 py-0.5 rounded-full text-white">
-                ¡Novedad de Tuddy AI!
-              </span>
-              <span className="text-xs font-black text-amber-100">
-                20 Modelos de Juego
-              </span>
-              <span className="text-[10px] font-bold bg-amber-900/40 text-amber-200 px-2 py-0.5 rounded-full">
-                10 Gratis + 10 Plus 👑
-              </span>
+      {/* FEATURED: DUAL HERO BANNERS (TUDDY ACI + 20 MODELOS DE JUEGO) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* HERO BANNER 1: TUDDYACI (TUDDY ADVANCED CHAT INTELLIGENCE) */}
+        <div 
+          onClick={() => onNavigate("tutor")}
+          className="bg-gradient-to-r from-purple-700 via-indigo-600 to-violet-700 rounded-3xl p-5 text-white shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer hover:shadow-md hover:brightness-105 transition-all group border-2 border-purple-200/40"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white text-2xl group-hover:scale-105 transition-transform shrink-0 shadow-inner">
+              ✨
             </div>
-            <h3 className="text-base font-black tracking-tight leading-snug">
-              Juegos Adaptativos a tu Materia y Tema
-            </h3>
-            <p className="text-xs text-white/90 leading-relaxed">
-              Tú eliges la materia y el tema en específico, y Tuddy AI adapta cualquiera de los 20 modelos de juego en tiempo real.
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-full text-white">
+                  TuddyACI
+                </span>
+                <span className="text-xs font-black text-purple-200">
+                  Chat IA Avanzado
+                </span>
+                <span className="text-[10px] font-bold bg-purple-950/50 text-purple-200 px-2 py-0.5 rounded-full">
+                  Tipo ChatGPT 🤖
+                </span>
+              </div>
+              <h3 className="text-base font-black tracking-tight leading-snug truncate">
+                Tuddy Advanced Chat Intelligence
+              </h3>
+              <p className="text-xs text-purple-100/90 leading-relaxed line-clamp-2">
+                Explicaciones profundas, tablas, nemotécnicas y órdenes académicas específicas.
+              </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            id="bento-open-tuddyaci-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate("tutor");
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-white text-purple-950 hover:bg-purple-50 font-black text-xs shadow-xs transition-transform group-hover:scale-105 cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            Abrir TuddyACI →
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate("games");
-          }}
-          className="px-5 py-2.5 rounded-2xl bg-white text-slate-900 hover:bg-amber-50 font-black text-xs shadow-xs transition-transform group-hover:scale-105 cursor-pointer shrink-0"
+        {/* HERO BANNER 2: MODELOS DE JUEGO ADAPTATIVOS DE TUDDY AI */}
+        <div 
+          onClick={() => onNavigate("games")}
+          className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-3xl p-5 text-white shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer hover:shadow-md hover:brightness-105 transition-all group border-2 border-amber-200/40"
         >
-          Ver los 20 Juegos →
-        </button>
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white text-2xl group-hover:scale-105 transition-transform shrink-0">
+              🎮
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-full text-white">
+                  20 Modelos
+                </span>
+                <span className="text-xs font-black text-amber-100">
+                  Juegos Adaptativos
+                </span>
+                <span className="text-[10px] font-bold bg-amber-900/40 text-amber-200 px-2 py-0.5 rounded-full">
+                  10 Gratis + 10 Plus 👑
+                </span>
+              </div>
+              <h3 className="text-base font-black tracking-tight leading-snug truncate">
+                Juegos IA por Materia y Tema
+              </h3>
+              <p className="text-xs text-white/90 leading-relaxed line-clamp-2">
+                Tuddy AI adapta cualquiera de los 20 juegos interactivos al tema que desees repasar.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate("games");
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-white text-slate-900 hover:bg-amber-50 font-black text-xs shadow-xs transition-transform group-hover:scale-105 cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            Ver 20 Juegos →
+          </button>
+        </div>
       </div>
 
       {/* Bento Grid layout matching Design HTML */}
@@ -476,9 +522,9 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
             <span>{notes.length} {t.notesTitle.toLowerCase()}</span>
             <span 
               onClick={() => onNavigate("tutor")}
-              className="text-[#4A8A9E] font-bold cursor-pointer hover:underline"
+              className="text-purple-700 font-bold cursor-pointer hover:underline flex items-center gap-1"
             >
-              {t.navTutor} →
+              <span>TuddyACI</span> →
             </span>
           </div>
         </div>
