@@ -17,7 +17,8 @@ import {
   Settings,
   Crown,
   User,
-  Gamepad2
+  Gamepad2,
+  GraduationCap
 } from "lucide-react";
 import { 
   Flashcard, 
@@ -33,7 +34,10 @@ import {
   SubscriptionStatus,
   UserAccount,
   AccountBackupData,
-  ExamQuestion
+  ExamQuestion,
+  TeacherClassroom,
+  TeacherAssignment,
+  TeacherExamRecord
 } from "./types";
 import { 
   getStoredDecks, 
@@ -58,8 +62,18 @@ import {
   saveSubscription,
   clearAllStorageData,
   DEFAULT_SETTINGS,
-  DEFAULT_PET
+  DEFAULT_PET,
+  getStoredTeacherClassrooms,
+  saveTeacherClassrooms,
+  getStoredTeacherAssignments,
+  saveTeacherAssignments,
+  getStoredTeacherExams,
+  saveTeacherExams,
+  isTeacherAuthenticated,
+  setTeacherAuthenticated
 } from "./utils/storage";
+import { TeacherModule } from "./components/teacher/TeacherModule";
+import { TeacherAuthModal } from "./components/teacher/TeacherAuthModal";
 import { WorkspaceTabBar } from "./components/WorkspaceTabBar";
 import { AnthropomorphicBunny, PetAvatar } from "./components/AnthropomorphicBunny";
 import { TuddyMascot } from "./components/TuddyMascot";
@@ -103,6 +117,34 @@ export default function App() {
   const [subscription, setSubscription] = useState<SubscriptionStatus>(() => getStoredSubscription());
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [subscriptionFocusPerk, setSubscriptionFocusPerk] = useState<"flashcards" | "exams" | "languages" | "colors" | "outfits" | "streak" | "general">("general");
+
+  // Teacher Mode (Access Code Protected)
+  const [isTeacherModeActive, setIsTeacherModeActive] = useState<boolean>(false);
+  const [isTeacherAuthModalOpen, setIsTeacherAuthModalOpen] = useState<boolean>(false);
+  const [isTeacherLoggedIn, setIsTeacherLoggedIn] = useState<boolean>(() => isTeacherAuthenticated());
+  const [teacherClassrooms, setTeacherClassrooms] = useState<TeacherClassroom[]>(() => getStoredTeacherClassrooms());
+  const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>(() => getStoredTeacherAssignments());
+  const [teacherExams, setTeacherExams] = useState<TeacherExamRecord[]>(() => getStoredTeacherExams());
+
+  const handleOpenTeacherSuite = () => {
+    if (isTeacherLoggedIn) {
+      setIsTeacherModeActive(true);
+    } else {
+      setIsTeacherAuthModalOpen(true);
+    }
+  };
+
+  const handleTeacherAuthSuccess = () => {
+    setIsTeacherLoggedIn(true);
+    setIsTeacherAuthModalOpen(false);
+    setIsTeacherModeActive(true);
+  };
+
+  const handleTeacherLogout = () => {
+    setIsTeacherModeActive(false);
+    setIsTeacherLoggedIn(false);
+    setTeacherAuthenticated(false);
+  };
 
   const handleOpenSubscription = (perk: "flashcards" | "exams" | "languages" | "colors" | "outfits" | "streak" | "general" = "general") => {
     setSubscriptionFocusPerk(perk);
@@ -488,6 +530,7 @@ export default function App() {
     { id: "languages", label: t.navLanguages || "Idiomas", icon: Languages },
     { id: "games", label: "Juegos IA", icon: Gamepad2, count: 20 },
     { id: "analytics", label: t.navAnalytics || "Progreso a Largo Plazo", icon: TrendingUp },
+    { id: "teacher", label: "Modo Profesores", icon: GraduationCap, isTeacher: true },
   ];
 
   // User Level
@@ -507,7 +550,27 @@ export default function App() {
         t,
       }}
     >
-      <div className="min-h-screen bg-[#FDF9F3] text-[#4A4A4A] flex flex-col font-sans">
+      {isTeacherModeActive ? (
+        <TeacherModule
+          classrooms={teacherClassrooms}
+          onSaveClassrooms={(updated) => {
+            setTeacherClassrooms(updated);
+            saveTeacherClassrooms(updated);
+          }}
+          assignments={teacherAssignments}
+          onSaveAssignments={(updated) => {
+            setTeacherAssignments(updated);
+            saveTeacherAssignments(updated);
+          }}
+          exams={teacherExams}
+          onSaveExams={(updated) => {
+            setTeacherExams(updated);
+            saveTeacherExams(updated);
+          }}
+          onLogout={handleTeacherLogout}
+        />
+      ) : (
+        <div className="min-h-screen bg-[#FDF9F3] text-[#4A4A4A] flex flex-col font-sans">
       {/* TOP APPLICATION BAR - BENTO GRID HEADER */}
       <header className="sticky top-0 z-40 border-b-2 border-[#E8E2D9] bg-[#FDF9F3]/90 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -578,6 +641,21 @@ export default function App() {
                   <span className="text-[10px] bg-amber-400/50 text-amber-950 px-1 py-0.5 rounded-sm font-black">$3.50</span>
                 </button>
               )}
+
+              {/* Tuddy Profesores Access Button */}
+              <button
+                type="button"
+                id="top-nav-tuddy-teachers-btn"
+                onClick={handleOpenTeacherSuite}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200 text-indigo-950 font-black px-2.5 sm:px-3 py-1.5 rounded-full shadow-2xs text-xs transition-all cursor-pointer"
+                title="Tuddy para Profesores - Acceso exclusivo con código para gestión de aulas, tareas, exámenes y herramientas docentes"
+              >
+                <GraduationCap className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="hidden sm:inline">Profesores</span>
+                <span className="text-[10px] bg-indigo-200/80 text-indigo-900 px-1.5 py-0.2 rounded-full font-bold">
+                  {isTeacherLoggedIn ? "Activo" : "Código"}
+                </span>
+              </button>
 
               {/* Account & Cloud Sync Quick Button (100% Optional) */}
               <button
@@ -675,23 +753,36 @@ export default function App() {
 
           {/* Navigation Tabs Bar with Bento Pills */}
           <nav className="flex items-center gap-1.5 overflow-x-auto pb-2.5 pt-1 border-t border-[#E8E2D9]/60 scrollbar-none">
-            {navItems.map((item) => {
+            {navItems.map((item: any) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const isTeacher = item.id === "teacher";
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => handleOpenTab(item.id as WorkspaceTab["type"])}
-                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-xs whitespace-nowrap transition-all ${
-                    isActive
+                  onClick={() => {
+                    if (isTeacher) {
+                      handleOpenTeacherSuite();
+                    } else {
+                      handleOpenTab(item.id as WorkspaceTab["type"]);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-xs whitespace-nowrap transition-all cursor-pointer ${
+                    isTeacher
+                      ? "bg-indigo-50 text-indigo-900 hover:bg-indigo-100 border border-indigo-200 font-bold"
+                      : isActive
                       ? "bg-[#FFB7B2] text-white font-bold shadow-xs border border-[#FFB7B2]"
                       : "bg-white text-[#4A4A4A] hover:bg-[#FAF6F0] border border-[#E8E2D9] font-medium"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#7A7A7A]"}`} />
+                  <Icon className={`h-4 w-4 ${isTeacher ? "text-indigo-600" : isActive ? "text-white" : "text-[#7A7A7A]"}`} />
                   <span>{item.label}</span>
-                  {item.count !== undefined && (
+                  {isTeacher ? (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase bg-indigo-200/80 text-indigo-900">
+                      Docente
+                    </span>
+                  ) : item.count !== undefined ? (
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                         isActive ? "bg-white/30 text-white" : "bg-[#F8F9FA] text-[#7A7A7A] border border-[#E8E2D9]"
@@ -699,7 +790,7 @@ export default function App() {
                     >
                       {item.count}
                     </span>
-                  )}
+                  ) : null}
                 </button>
               );
             })}
@@ -1032,6 +1123,14 @@ export default function App() {
         onDeductCarrots={(amt) => handleRewardCarrots(-amt)}
       />
     </div>
+    )}
+
+    {/* TEACHER ACCESS CODE AUTH MODAL */}
+    <TeacherAuthModal
+      isOpen={isTeacherAuthModalOpen}
+      onClose={() => setIsTeacherAuthModalOpen(false)}
+      onSuccess={handleTeacherAuthSuccess}
+    />
     </LanguageContext.Provider>
   );
 }

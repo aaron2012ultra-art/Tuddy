@@ -1692,6 +1692,654 @@ function generateFallbackGame(gameId: string, subject: string, topic: string, di
   };
 }
 
+// ==========================================
+// TUDDY PARA PROFESORES - AI ENDPOINTS
+// ==========================================
+
+// 1. Creador de Mejores Tareas con IA
+app.post("/api/ai/teacher/generate-assignment", async (req: Request, res: Response) => {
+  const { grade, subject, topic, bloomLevel, assignmentType, maxScore, customInstructions } = req.body;
+  const cleanGrade = grade || "Secundaria";
+  const cleanSubject = subject || "Materia General";
+  const cleanTopic = topic || "Tema del Curso";
+  const cleanBloom = bloomLevel || "aplicar";
+  const cleanMaxScore = maxScore || 20;
+
+  try {
+    const prompt = `Actúa como un Diseñador Curricular y Pedagogo Experto de Tuddy para Profesores.
+Crea una tarea escolar de alto impacto y rigor pedagógico para estudiantes de ${cleanGrade} en el curso de ${cleanSubject}.
+Tema: "${cleanTopic}".
+Nivel de la Taxonomía de Bloom deseado: "${cleanBloom}".
+Tipo de formato de tarea: "${assignmentType || "Resolución de problemas con aplicación a la vida real"}".
+Escala de puntaje total: ${cleanMaxScore} puntos.
+${customInstructions ? `Instrucciones adicionales del docente: "${customInstructions}"` : ""}
+
+Requisitos de la tarea:
+1. Conexión auténtica con situaciones reales que motiven a los estudiantes.
+2. Instrucciones claras paso a paso para el estudiante.
+3. Rúbrica con criterios desglosados y puntajes que sumen exactamente ${cleanMaxScore} puntos.
+4. Consejos pedagógicos para el profesor al momento de calificar o hacer retroalimentación.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            topic: { type: Type.STRING },
+            learningGoal: { type: Type.STRING },
+            realWorldContext: { type: Type.STRING },
+            instructionsMarkdown: { type: Type.STRING },
+            deliverablesGuide: { type: Type.STRING },
+            bloomLevel: { type: Type.STRING },
+            rubricCriteria: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  criterion: { type: Type.STRING },
+                  points: { type: Type.NUMBER },
+                  description: { type: Type.STRING },
+                  excellentDescriptor: { type: Type.STRING },
+                  needsImprovementDescriptor: { type: Type.STRING },
+                },
+                required: ["criterion", "points", "description", "excellentDescriptor", "needsImprovementDescriptor"],
+              },
+            },
+            estimatedTimeMinutes: { type: Type.NUMBER },
+            teacherPedagogicalTips: { type: Type.STRING },
+          },
+          required: ["title", "topic", "learningGoal", "realWorldContext", "instructionsMarkdown", "deliverablesGuide", "bloomLevel", "rubricCriteria", "estimatedTimeMinutes", "teacherPedagogicalTips"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher generate-assignment fallback invoked:", error?.message || error);
+    res.json({
+      title: `Desafío Práctico: ${cleanTopic} en la Vida Real`,
+      topic: cleanTopic,
+      learningGoal: `El estudiante será capaz de aplicar conceptos clave de ${cleanTopic} para resolver y justificar un problema auténtico.`,
+      realWorldContext: `En situaciones cotidianas y profesionales, ${cleanTopic} permite tomar decisiones fundamentadas y optimizar procesos.`,
+      instructionsMarkdown: `### 📋 Instrucciones para el Estudiante:\n\n1. **Fase 1 - Investigación Inicial**: Revisa tus apuntes sobre ${cleanTopic} e identifica los principios clave.\n2. **Fase 2 - Desarrollo y Modelado**: Aplica el procedimiento paso a paso para resolver el caso asignado, justificando cada operación.\n3. **Fase 3 - Conclusión y Reflexión**: Redacta una breve conclusión de 3 líneas explicando qué aprendiste y cómo lo aplicarías en tu comunidad.`,
+      deliverablesGuide: "Entregar en hoja cuadriculada ordenada o documento digital con nombre, fecha y procedimientos completos.",
+      bloomLevel: cleanBloom,
+      rubricCriteria: [
+        {
+          criterion: "Comprensión conceptual y planteamiento",
+          points: Math.round(cleanMaxScore * 0.4),
+          description: "Demuestra dominio de los conceptos esenciales y formula correctamente el problema.",
+          excellentDescriptor: "Planteamiento impecable sin errores conceptuales.",
+          needsImprovementDescriptor: "Planteamiento confuso o con omisiones importantes."
+        },
+        {
+          criterion: "Procedimiento y rigurosidad",
+          points: Math.round(cleanMaxScore * 0.4),
+          description: "Desarrolla el trabajo con coherencia lógica y métodos adecuados.",
+          excellentDescriptor: "Procedimiento detallado, claro y matemáticamente exacto.",
+          needsImprovementDescriptor: "Saltos lógicos injustificados o errores de cálculo."
+        },
+        {
+          criterion: "Conclusión y presentación",
+          points: Math.max(1, cleanMaxScore - (Math.round(cleanMaxScore * 0.4) * 2)),
+          description: "Comunica resultados de forma ordenada y reflexiva.",
+          excellentDescriptor: "Conclusión crítica, pulcritud y entrega oportuna.",
+          needsImprovementDescriptor: "Conclusión superficial o presentación desordenada."
+        }
+      ],
+      estimatedTimeMinutes: 45,
+      teacherPedagogicalTips: "Al revisar, enfócate en el razonamiento del alumno más que en el resultado aislado. Brinda retroalimentación descriptiva."
+    });
+  }
+});
+
+// 2. Herramienta Especial 1: Planificador de Clases (Lesson Plan)
+app.post("/api/ai/teacher/generate-lesson-plan", async (req: Request, res: Response) => {
+  const { grade, subject, topic, durationMinutes, pedagogicalApproach } = req.body;
+  const cleanGrade = grade || "3° Secundaria";
+  const cleanSubject = subject || "Materia";
+  const cleanTopic = topic || "Tema";
+  const cleanDuration = durationMinutes || 90;
+
+  try {
+    const prompt = `Diseña una Sesión de Aprendizaje / Plan de Clase completo para un profesor de ${cleanGrade} en el curso de ${cleanSubject}.
+Tema: "${cleanTopic}".
+Duración total: ${cleanDuration} minutos.
+Enfoque metodológico: "${pedagogicalApproach || "DUA (Diseño Universal para el Aprendizaje) y Aprendizaje Activo"}".
+
+Estructura obligatoria:
+- Título atractivo y propósito de aprendizaje.
+- Competencias y capacidades trabajadas.
+- Secuencia didáctica en tres momentos clave con tiempos asignados:
+  * INICIO: Motivación, saberes previos y conflicto cognitivo.
+  * DESARROLLO: Explicación interactiva, modelado del docente, práctica guiada y trabajo colaborativo/individual.
+  * CIERRE: Metacognición (¿Qué aprendimos? ¿Cómo lo aprendimos?), autoevaluación y síntesis.
+- Adaptaciones DUA para atención a la diversidad.
+- Instrumento y criterios de evaluación sugeridos.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            subject: { type: Type.STRING },
+            grade: { type: Type.STRING },
+            durationMinutes: { type: Type.NUMBER },
+            purpose: { type: Type.STRING },
+            competency: { type: Type.STRING },
+            materials: { type: Type.ARRAY, items: { type: Type.STRING } },
+            inicio: {
+              type: Type.OBJECT,
+              properties: {
+                minutes: { type: Type.NUMBER },
+                motivationActivity: { type: Type.STRING },
+                priorKnowledgeQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                cognitiveConflict: { type: Type.STRING },
+              },
+              required: ["minutes", "motivationActivity", "priorKnowledgeQuestions", "cognitiveConflict"],
+            },
+            desarrollo: {
+              type: Type.OBJECT,
+              properties: {
+                minutes: { type: Type.NUMBER },
+                conceptExplanation: { type: Type.STRING },
+                guidedPractice: { type: Type.STRING },
+                studentActivities: { type: Type.STRING },
+                duaAdaptationNotes: { type: Type.STRING },
+              },
+              required: ["minutes", "conceptExplanation", "guidedPractice", "studentActivities", "duaAdaptationNotes"],
+            },
+            cierre: {
+              type: Type.OBJECT,
+              properties: {
+                minutes: { type: Type.NUMBER },
+                metacognitionQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                synthesisActivity: { type: Type.STRING },
+              },
+              required: ["minutes", "metacognitionQuestions", "synthesisActivity"],
+            },
+            evaluationEvidence: { type: Type.STRING },
+          },
+          required: ["title", "subject", "grade", "durationMinutes", "purpose", "competency", "materials", "inicio", "desarrollo", "cierre", "evaluationEvidence"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher lesson plan fallback invoked:", error?.message || error);
+    res.json({
+      title: `Sesión de Aprendizaje: Descubriendo ${cleanTopic}`,
+      subject: cleanSubject,
+      grade: cleanGrade,
+      durationMinutes: cleanDuration,
+      purpose: `Que los estudiantes comprendan los principios fundamentales de ${cleanTopic} y los comuniquen con propiedad.`,
+      competency: `Resuelve problemas e indaga mediante métodos científicos y conceptuales en ${cleanSubject}.`,
+      materials: ["Pizarra o proyector", "Fichas de trabajo impresas", "Cuaderno de apuntes", "Tarjetas de participación"],
+      inicio: {
+        minutes: 15,
+        motivationActivity: `Presentar un enigma o situación cotidiana relacionada con ${cleanTopic} para despertar curiosidad.`,
+        priorKnowledgeQuestions: [
+          `¿Qué recuerdan sobre los conceptos previos vinculados a ${cleanTopic}?`,
+          "¿Dónde han visto aplicarse esto en la vida real?"
+        ],
+        cognitiveConflict: "¿Sería posible resolver esta situación sin aplicar esta regla fundamental?"
+      },
+      desarrollo: {
+        minutes: cleanDuration - 30,
+        conceptExplanation: `El docente expone de manera visual y clara el concepto de ${cleanTopic}, utilizando analogías y ejemplos paso a paso.`,
+        guidedPractice: "Resolución conjunta de dos ejercicios modelo en la pizarra con preguntas socráticas.",
+        studentActivities: "Los alumnos trabajan en parejas resolviendo un caso práctico aplicando lo aprendido.",
+        duaAdaptationNotes: "Proporcionar organizadores visuales y permitir respuestas orales o esquemáticas para alumnos que lo requieran."
+      },
+      cierre: {
+        minutes: 15,
+        metacognitionQuestions: [
+          "¿Qué fue lo más fácil y lo más desafiante de la clase de hoy?",
+          "¿Para qué me sirve lo que aprendí sobre este tema?"
+        ],
+        synthesisActivity: "Un minuto de síntesis en el que cada estudiante comparte una palabra clave de la sesión."
+      },
+      evaluationEvidence: "Ficha práctica de aplicación calificada con lista de cotejo."
+    });
+  }
+});
+
+// 3. Herramienta Especial 2: Generador de Rúbricas Analíticas
+app.post("/api/ai/teacher/generate-rubric", async (req: Request, res: Response) => {
+  const { grade, subject, taskTitle, criteriaCount, scaleType } = req.body;
+  const cleanGrade = grade || "Secundaria";
+  const cleanSubject = subject || "Materia General";
+  const cleanTitle = taskTitle || "Actividad o Proyecto de Clase";
+  const count = criteriaCount || 4;
+
+  try {
+    const prompt = `Crea una Rúbrica Analítica de Evaluación para el docente en ${cleanSubject} para ${cleanGrade}.
+Actividad / Producto a evaluar: "${cleanTitle}".
+Cantidad de criterios: ${count}.
+Escala de desempeño: Sobresaliente (AD / 4 pts), Logrado (A / 3 pts), En Proceso (B / 2 pts), En Inicio (C / 1 pto).
+Para cada criterio, describe con detalle y objetividad las evidencias observables.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            subject: { type: Type.STRING },
+            grade: { type: Type.STRING },
+            totalPoints: { type: Type.NUMBER },
+            criteria: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  weightPercentage: { type: Type.NUMBER },
+                  outstanding: { type: Type.STRING },
+                  proficient: { type: Type.STRING },
+                  developing: { type: Type.STRING },
+                  beginning: { type: Type.STRING },
+                },
+                required: ["name", "weightPercentage", "outstanding", "proficient", "developing", "beginning"],
+              },
+            },
+            teacherObservationAdvice: { type: Type.STRING },
+          },
+          required: ["title", "subject", "grade", "totalPoints", "criteria", "teacherObservationAdvice"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher rubric fallback invoked:", error?.message || error);
+    res.json({
+      title: `Rúbrica de Evaluación: ${cleanTitle}`,
+      subject: cleanSubject,
+      grade: cleanGrade,
+      totalPoints: 20,
+      criteria: [
+        {
+          name: "Dominio y Comprensión Conceptual",
+          weightPercentage: 35,
+          outstanding: "Evidencia comprensión profunda; explica y fundamenta sin imprecisiones.",
+          proficient: "Demuestra dominio adecuado de los conceptos clave con pocas dudas menores.",
+          developing: "Identifica conceptos de forma parcial; requiere orientación en aspectos centrales.",
+          beginning: "Presenta errores conceptuales graves o confunde nociones básicas."
+        },
+        {
+          name: "Procedimiento y Rigor Metodológico",
+          weightPercentage: 35,
+          outstanding: "Sigue una secuencia lógica impecable, detallada y verifica sus conclusiones.",
+          proficient: "Aplica los pasos requeridos con coherencia lógica y orden general.",
+          developing: "Omite pasos metodológicos o comete errores de cálculo/proceso evitables.",
+          beginning: "No presenta procedimiento ordenado o el desarrollo no se relaciona con la consigna."
+        },
+        {
+          name: "Claridad, Presentación y Trabajo Autónomo",
+          weightPercentage: 30,
+          outstanding: "Presentación impecable, lenguaje técnico preciso y entrega puntual.",
+          proficient: "Trabajo pulcro, lenguaje apropiado y entregado en el plazo acordado.",
+          developing: "Presentación descuidada o vocabulario excesivamente informal.",
+          beginning: "Incompleto, ilegible o fuera del plazo sin justificación."
+        }
+      ],
+      teacherObservationAdvice: "Utiliza esta rúbrica para dialogar con el estudiante sobre sus fortalezas y próximos pasos antes del cierre de unidad."
+    });
+  }
+});
+
+// 4. Herramienta Especial 3: Generador de Exámenes Escolares Imprimibles
+app.post("/api/ai/teacher/generate-exam", async (req: Request, res: Response) => {
+  const { schoolName, teacherName, grade, section, subject, topic, questionCount, durationMinutes } = req.body;
+  const count = questionCount || 5;
+
+  try {
+    const prompt = `Crea un examen escolar completo y riguroso listo para imprimir y fotocopiar en hoja A4.
+Institución: "${schoolName || "Colegio Modelo"}".
+Profesor: "${teacherName || "Docente"}".
+Grado: "${grade || "3° Secundaria"}".
+Sección: "${section || "A"}".
+Curso: "${subject || "Matemáticas"}".
+Tema evaluado: "${topic || "Evaluación Bimestral"}".
+Cantidad de preguntas: ${count}.
+Tiempo: ${durationMinutes || 60} minutos.
+
+El examen debe incluir:
+1. Encabezado formal con campos para Nombre, Fecha, Grado, Sección y Calificación.
+2. Instrucciones para el alumno.
+3. Preguntas con tipos variados (opción múltiple y desarrollo con espacio de resolución).
+4. Clave de respuestas separada con justificación pedagógica para el docente.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            header: {
+              type: Type.OBJECT,
+              properties: {
+                schoolName: { type: Type.STRING },
+                examTitle: { type: Type.STRING },
+                subject: { type: Type.STRING },
+                gradeAndSection: { type: Type.STRING },
+                duration: { type: Type.STRING },
+                maxScore: { type: Type.NUMBER },
+              },
+              required: ["schoolName", "examTitle", "subject", "gradeAndSection", "duration", "maxScore"],
+            },
+            instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            questions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  number: { type: Type.NUMBER },
+                  questionText: { type: Type.STRING },
+                  type: { type: Type.STRING },
+                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  points: { type: Type.NUMBER },
+                  workingLinesHint: { type: Type.STRING },
+                },
+                required: ["number", "questionText", "type", "points"],
+              },
+            },
+            teacherAnswerKey: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  questionNumber: { type: Type.NUMBER },
+                  correctAnswer: { type: Type.STRING },
+                  gradingCriteria: { type: Type.STRING },
+                },
+                required: ["questionNumber", "correctAnswer", "gradingCriteria"],
+              },
+            },
+          },
+          required: ["header", "instructions", "questions", "teacherAnswerKey"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher exam builder fallback invoked:", error?.message || error);
+    res.json({
+      header: {
+        schoolName: schoolName || "Colegio Modelo",
+        examTitle: `Evaluación Escolar: ${topic || "Tema de Clase"}`,
+        subject: subject || "Matemáticas",
+        gradeAndSection: `${grade || "3°"} - Sección ${section || "A"}`,
+        duration: `${durationMinutes || 60} minutos`,
+        maxScore: 20
+      },
+      instructions: [
+        "Lee atentamente cada enunciado antes de responder.",
+        "Usa lapicero azul o negro para las respuestas definitivas.",
+        "Justifica todos tus procedimientos matemáticos y teóricos."
+      ],
+      questions: [
+        {
+          number: 1,
+          questionText: `¿Cuál es el principio fundamental que rige a ${topic || "este tema"}?`,
+          type: "multiple_choice",
+          options: [
+            "Es la ley de conservación y correspondencia directa",
+            "Depende exclusivamente de factores ambientales",
+            "Constituye una excepción aplicable solo a casos límites",
+            "Es una regla empírica sin sustento teórico"
+          ],
+          points: 4,
+          workingLinesHint: "Marca con una 'X' la opción correcta."
+        },
+        {
+          number: 2,
+          questionText: `Aplica los conceptos de ${topic || "este tema"} para resolver un caso concreto de cálculo:`,
+          type: "open_development",
+          options: [],
+          points: 8,
+          workingLinesHint: "Espacio para desarrollo y procedimiento completo (5 líneas)."
+        },
+        {
+          number: 3,
+          questionText: `Explica dos diferencias cruciales en la aplicación de ${topic || "este tema"} en situaciones reales:`,
+          type: "open_short",
+          options: [],
+          points: 8,
+          workingLinesHint: "Redacta tu explicación con vocabulario técnico."
+        }
+      ],
+      teacherAnswerKey: [
+        { questionNumber: 1, correctAnswer: "Es la ley de conservación y correspondencia directa", gradingCriteria: "4 pts si marca la opción exacta." },
+        { questionNumber: 2, correctAnswer: "Procedimiento correcto y valor numérico verificado", gradingCriteria: "4 pts planteamiento, 4 pts cálculo final." },
+        { questionNumber: 3, correctAnswer: "Menciona variables independientes y su impacto", gradingCriteria: "4 pts por cada diferencia bien argumentada." }
+      ]
+    });
+  }
+});
+
+// 5. Herramienta Especial 4: Generador de Comunicados y Reportes para Padres de Familia
+app.post("/api/ai/teacher/generate-parent-report", async (req: Request, res: Response) => {
+  const { studentName, grade, section, situationType, positiveAspects, areasToImprove, teacherName, schoolName } = req.body;
+  const cleanStudent = studentName || "Estudiante";
+  const cleanGrade = `${grade || "Grado"} - Sec. ${section || "A"}`;
+  const cleanSituation = situationType || "informe_academico";
+
+  try {
+    const prompt = `Redacta un Comunicado Oficial y un Mensaje de WhatsApp para los Padres de Familia / Apoderados.
+Profesor: "${teacherName || "El Docente"}".
+Colegio: "${schoolName || "La Institución Educativa"}".
+Estudiante: "${cleanStudent}".
+Grado y Sección: "${cleanGrade}".
+Motivo / Situación: "${cleanSituation}" (ej. felicitación, bajo rendimiento en tareas, falta de materiales o citación constructiva).
+Fortalezas / Aspectos Positivos observados: "${positiveAspects || "Es participativo y muestra interés en clase"}".
+Áreas a mejorar o compromiso requerido: "${areasToImprove || "Cumplimiento puntual de las tareas y repaso diario de 20 minutos"}".
+
+Tono:
+- Respetuoso, empático, motivador y profesional.
+- El objetivo es formar equipo con la familia, nunca culpar o generar rechazo.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            subjectLine: { type: Type.STRING },
+            formalLetterText: { type: Type.STRING },
+            whatsappQuickMessage: { type: Type.STRING },
+            recommendedActionPlan: { type: Type.ARRAY, items: { type: Type.STRING } },
+          },
+          required: ["subjectLine", "formalLetterText", "whatsappQuickMessage", "recommendedActionPlan"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher parent report fallback invoked:", error?.message || error);
+    res.json({
+      subjectLine: `Reporte de Acompañamiento Escolar - ${cleanStudent} (${cleanGrade})`,
+      formalLetterText: `Estimados padres de familia y apoderados de ${cleanStudent}:\n\nPor medio de la presente, reciban un cordial y afectuoso saludo en nombre de ${schoolName || "nuestra comunidad educativa"}.\n\nMe dirijo a ustedes para compartirles el seguimiento pedagógico de ${cleanStudent}. Destacamos gratamente que ${positiveAspects || "muestra entusiasmo y buena disposición para el trabajo en el aula"}.\n\nPara consolidar su máximo potencial, es fundamental que en casa reforcemos: ${areasToImprove || "el hábito de repaso diario y la entrega puntual de las tareas asignadas"}.\n\nConfiamos plenamente en las capacidades de ${cleanStudent} y en el valioso acompañamiento que ustedes le brindan día a día.\n\nAtentamente,\n${teacherName || "Profesor de Área"}`,
+      whatsappQuickMessage: `👋 Estimada familia de *${cleanStudent}* (${cleanGrade}):\nLes saluda cordialmente su profesor(a). Queremos felicitar su esfuerzo en el aula y coordinar con ustedes para seguir fortaleciendo el cumplimiento de tareas en casa 📚✨. ¡Con su apoyo en equipo lograremos excelentes resultados! Cualquier duda estoy a su disposición.`,
+      recommendedActionPlan: [
+        "Establecer un horario fijo de estudio de 30 minutos en casa sin pantallas distractoras.",
+        "Revisar conjuntamente la libreta de tareas o el cuaderno una vez por semana.",
+        "Reconocer y felicitar verbalmente sus avances para fortalecer su autoestima."
+      ]
+    });
+  }
+});
+
+// 6. Herramienta Especial 5: Adaptador Curricular Diferenciado (DUA / NEE)
+app.post("/api/ai/teacher/adapt-curriculum", async (req: Request, res: Response) => {
+  const { originalContent, grade, subject, studentProfile } = req.body;
+  const cleanProfile = studentProfile || "Estudiante con dificultad de comprensión lectora o TDAH que requiere apoyos visuales y pasos cortos";
+
+  try {
+    const prompt = `Actúa como Especialista en Inclusión Educativa y DUA (Diseño Universal para el Aprendizaje).
+Adapta el siguiente material escolar para atender la diversidad en el aula (${grade || "Secundaria"} - ${subject || "Materia"}):
+Perfil del estudiante o necesidad de apoyo: "${cleanProfile}".
+Contenido original a adaptar:
+"""
+${originalContent || "Explicación teórica de un concepto científico o matemático con lenguaje complejo."}
+"""
+
+Genera:
+1. Versión adaptada con lenguaje claro, organizadores y pasos dosificados.
+2. Apoyos visuales o esquemas recomendados para el pizarrón.
+3. Preguntas de andamiaje (de menor a mayor complejidad).
+4. Reto de extensión o profundización para mantener la motivación.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            adaptedTitle: { type: Type.STRING },
+            adaptedText: { type: Type.STRING },
+            visualScaffoldingTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+            scaffoldingQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            extensionChallenge: { type: Type.STRING },
+            teacherPedagogicalNotes: { type: Type.STRING },
+          },
+          required: ["adaptedTitle", "adaptedText", "visualScaffoldingTips", "scaffoldingQuestions", "extensionChallenge", "teacherPedagogicalNotes"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher curriculum adaptation fallback invoked:", error?.message || error);
+    res.json({
+      adaptedTitle: "Versión Adaptada DUA: Lectura Paso a Paso con Apoyo Visual",
+      adaptedText: `### 📌 Idea Clave en 1 Minuto:\n${originalContent ? originalContent.slice(0, 150) + "..." : "El concepto central se divide en pasos sencillos para facilitar el aprendizaje."}\n\n### 🔍 Pasos Claros:\n1. **Paso 1**: Identifica la palabra clave principal.\n2. **Paso 2**: Relaciónala con un ejemplo de tu vida diaria.\n3. **Paso 3**: Escribe o dibuja lo que entendiste.`,
+      visualScaffoldingTips: [
+        "Usar colores diferenciados para variables o conceptos clave.",
+        "Dividir el texto en bloques de no más de 3 líneas con viñetas.",
+        "Acompañar con un diagrama de flujo simple o mapa mental."
+      ],
+      scaffoldingQuestions: [
+        "¿De qué trata principalmente el texto con tus propias palabras?",
+        "¿Cuál es el primer paso que debes realizar para resolver el ejercicio?",
+        "¿Qué pasaría si cambiamos este dato en el ejemplo?"
+      ],
+      extensionChallenge: "Para estudiantes que terminen antes: Diseñar un ejemplo nuevo y explicárselo a un compañero.",
+      teacherPedagogicalNotes: "Valida la comprensión oralmente antes de pedirle la respuesta escrita para reducir la ansiedad académica."
+    });
+  }
+});
+
+// 7. Herramienta Especial 6: Tickets de Salida y Preguntas Rompehielos (Exit Tickets)
+app.post("/api/ai/teacher/generate-exit-tickets", async (req: Request, res: Response) => {
+  const { grade, subject, topic, ticketCount } = req.body;
+  const count = ticketCount || 3;
+
+  try {
+    const prompt = `Crea un set de ${count} Tickets de Salida (Exit Tickets de 3 minutos) y 2 Preguntas Rompehielos para una clase de ${grade || "Secundaria"} en ${subject || "Materia"}.
+Tema: "${topic || "Tema de la clase de hoy"}".
+
+Objetivo:
+- Permitir al profesor comprobar en 3 minutos antes de que suene la campana qué estudiantes comprendieron el tema y quiénes necesitan refuerzo.
+- Preguntas breves, creativas y altamente diagnósticas.`;
+
+    const response = await generateContentWithRetry({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            topic: { type: Type.STRING },
+            icebreakerWarmups: { type: Type.ARRAY, items: { type: Type.STRING } },
+            exitTickets: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  number: { type: Type.NUMBER },
+                  ticketTitle: { type: Type.STRING },
+                  promptForStudent: { type: Type.STRING },
+                  diagnosticPurpose: { type: Type.STRING },
+                  idealQuickAnswer: { type: Type.STRING },
+                },
+                required: ["number", "ticketTitle", "promptForStudent", "diagnosticPurpose", "idealQuickAnswer"],
+              },
+            },
+            teacherActionAdvice: { type: Type.STRING },
+          },
+          required: ["topic", "icebreakerWarmups", "exitTickets", "teacherActionAdvice"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.warn("AI teacher exit tickets fallback invoked:", error?.message || error);
+    res.json({
+      topic: topic || "Tema de clase",
+      icebreakerWarmups: [
+        `Si tuvieras que explicar ${topic || "este tema"} a alguien de 8 años en una frase, ¿qué le dirías?`,
+        "En una escala del 1 al 5, ¿cuánta confianza sientes con este tema hoy?"
+      ],
+      exitTickets: [
+        {
+          number: 1,
+          ticketTitle: "Ticket 3-2-1 Rápido",
+          promptForStudent: "Escribe 2 cosas que aprendiste hoy y 1 duda que aún te quedó sobre el tema.",
+          diagnosticPurpose: "Detectar lagunas conceptuales antes de la siguiente clase.",
+          idealQuickAnswer: "Menciona los dos pilares del tema y formula una duda específica."
+        },
+        {
+          number: 2,
+          ticketTitle: "El Detector de Errores",
+          promptForStudent: "Un alumno imaginario afirma que este concepto no funciona en casos prácticos. ¿Cómo le demostrarías que está equivocado?",
+          diagnosticPurpose: "Evaluar capacidad de argumentación y pensamiento crítico.",
+          idealQuickAnswer: "Aporta un contraejemplo válido fundamentado."
+        },
+        {
+          number: 3,
+          ticketTitle: "Titular de Noticia",
+          promptForStudent: "Inventa un titular de periódico que resuma la gran idea de nuestra sesión de hoy.",
+          diagnosticPurpose: "Capacidad de síntesis inmediata.",
+          idealQuickAnswer: "Titular llamativo que sintetiza el propósito central."
+        }
+      ],
+      teacherActionAdvice: "Recoge los tickets en la puerta. Separa las respuestas en 3 montoncitos (Verde: comprendió, Amarillo: dudas menores, Rojo: requiere refuerzo prioritario)."
+    });
+  }
+});
+
+
 // Start server with Vite middleware or static serving
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

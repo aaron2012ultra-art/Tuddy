@@ -502,3 +502,146 @@ export interface ChatSession {
   subject?: string;
 }
 
+// ==========================================
+// TUDDY PARA PROFESORES (TEACHER SUITE TYPES)
+// ==========================================
+
+export type AttendanceStatus = "present" | "absent" | "late" | "excused";
+
+export interface StudentAttendanceEntry {
+  status: AttendanceStatus;
+  justification?: string; // Motivo o comprobante de ausencia justificada
+  recordedAt?: string;
+}
+
+export interface TeacherStudent {
+  id: string;
+  orderNumber: number;
+  fullName: string;
+  guardianContact?: string;
+  notes?: string;
+  specialNeeds?: string; // DUA / Adaptación
+  attendanceToday?: AttendanceStatus;
+}
+
+export interface TeacherClassroom {
+  id: string;
+  grade: string; // ej: "1° Primaria", "3° Secundaria", "5° Grado"
+  section: string; // ej: "A", "B", "C"
+  subject: string; // ej: "Matemáticas", "Ciencias"
+  academicYear: string; // ej: "2025"
+  roomOrSchedule?: string;
+  students: TeacherStudent[];
+  // Registro de asistencia por fecha (formato "YYYY-MM-DD" -> studentId -> StudentAttendanceEntry)
+  attendanceByDate?: Record<string, Record<string, StudentAttendanceEntry>>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AssignmentStatus = "pending" | "submitted" | "late" | "graded" | "missing";
+
+export interface StudentAssignmentRecord {
+  studentId: string;
+  status: AssignmentStatus;
+  score?: number; // ej: 0 - 20 o 0 - 100
+  feedback?: string;
+  submittedAt?: string;
+  checkedByTeacher?: boolean;
+}
+
+export type TeacherStudentRecord = StudentAssignmentRecord;
+
+export type TeacherTab = 
+  | "classrooms" 
+  | "assignments" 
+  | "exams" 
+  | "better_tasks" 
+  | "special_tools" 
+  | "settings";
+
+export interface TeacherAssignment {
+  id: string;
+  classroomId: string;
+  title: string;
+  subject: string;
+  topic: string;
+  dueDate: string;
+  maxScore: number;
+  bloomLevel?: "recordar" | "comprender" | "aplicar" | "analizar" | "evaluar" | "crear";
+  instructions: string;
+  rubricCriteria?: Array<{
+    criterion: string;
+    points: number;
+    description: string;
+  }>;
+  deliverablesGuide?: string;
+  studentRecords: Record<string, StudentAssignmentRecord>; // studentId -> record
+  createdAt: string;
+}
+
+export interface StudentExamGrade {
+  studentId: string;
+  score: number;
+  attended: boolean;
+  comments?: string;
+}
+
+export interface TeacherExamRecord {
+  id: string;
+  classroomId: string;
+  title: string;
+  subject: string;
+  topic: string;
+  date: string;
+  maxScore: number;
+  passingScore: number;
+  weightPercentage?: number;
+  grades: Record<string, StudentExamGrade>; // studentId -> grade
+  createdAt: string;
+}
+
+export interface TeacherAccount {
+  id: string;
+  email: string;
+  password: string;
+  uniqueCode: string;
+  teacherName: string;
+  schoolName: string;
+  subjectFocus?: string;
+  gradingScale?: "0-20" | "0-100" | "letters" | "letter";
+  createdAt: string;
+  lastLogin?: string;
+}
+
+export interface TeacherConfig {
+  accessCode: string; // Código de acceso del profesor (por defecto PROF-2025)
+  teacherName: string;
+  schoolName: string;
+  subjectFocus: string;
+  gradingScale: "0-20" | "0-100" | "letters" | "letter";
+  lastLogin?: string;
+  email?: string;
+  password?: string;
+  uniqueCode?: string;
+}
+
+export type TeacherSpecialTool =
+  | "lesson_planner"
+  | "rubric_generator"
+  | "exam_builder"
+  | "parent_reports"
+  | "curriculum_adapter"
+  | "exit_tickets";
+
+export interface TeacherSavedMaterial {
+  id: string;
+  toolType: TeacherSpecialTool | "ai_assignment";
+  title: string;
+  subject: string;
+  grade: string;
+  content: string;
+  parsedData?: any;
+  createdAt: string;
+}
+
+
