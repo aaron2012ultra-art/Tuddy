@@ -16,7 +16,14 @@ import {
   TeacherAccount,
   TeacherSavedMaterial,
   AttendanceStatus,
-  StudentAttendanceEntry
+  StudentAttendanceEntry,
+  ClassroomAnnouncement,
+  StudentTeacherMessage,
+  StudentActiveSession,
+  EducationalInstitution,
+  EducationalInstitutionTeacher,
+  EducationalInstitutionStudent,
+  InstitutionAnnouncement
 } from "../types";
 
 const STORAGE_KEYS = {
@@ -39,7 +46,50 @@ const STORAGE_KEYS = {
   TEACHER_ASSIGNMENTS: "tuddy_teacher_assignments_v1",
   TEACHER_EXAMS: "tuddy_teacher_exams_v1",
   TEACHER_MATERIALS: "tuddy_teacher_materials_v1",
+  STUDENT_ACTIVE_SESSION: "tuddy_student_active_session_v1",
+  INSTITUTIONS: "tuddy_educational_institutions_v1",
+  SCHOOL_TASKS: "tuddy_school_tasks_v1",
+  SCHOOL_MESSAGES: "tuddy_school_messages_v1",
 };
+
+// Auto-purge any legacy demo institutions, tasks, messages, or student demo sessions
+if (typeof window !== "undefined" && window.localStorage) {
+  try {
+    const rawInst = localStorage.getItem(STORAGE_KEYS.INSTITUTIONS);
+    if (rawInst && (rawInst.includes("inst-san-agustin") || rawInst.includes("COL-SAN-8921"))) {
+      const parsed = JSON.parse(rawInst);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter(
+          (i: { id?: string; institutionCode?: string }) =>
+            i?.id !== "inst-san-agustin" && i?.institutionCode !== "COL-SAN-8921"
+        );
+        localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(filtered));
+      } else {
+        localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify([]));
+      }
+    }
+    const rawSession = localStorage.getItem(STORAGE_KEYS.STUDENT_ACTIVE_SESSION);
+    if (
+      rawSession &&
+      (rawSession.includes("COL-SAN-8921") ||
+        rawSession.includes("inst-san-agustin") ||
+        rawSession.includes("EST-101") ||
+        rawSession.includes("Sofía Mendoza"))
+    ) {
+      localStorage.removeItem(STORAGE_KEYS.STUDENT_ACTIVE_SESSION);
+    }
+    const rawTasks = localStorage.getItem(STORAGE_KEYS.SCHOOL_TASKS);
+    if (rawTasks && (rawTasks.includes("inst-san-agustin") || rawTasks.includes("stask-"))) {
+      localStorage.setItem(STORAGE_KEYS.SCHOOL_TASKS, JSON.stringify([]));
+    }
+    const rawMsgs = localStorage.getItem(STORAGE_KEYS.SCHOOL_MESSAGES);
+    if (rawMsgs && (rawMsgs.includes("Carlos Rodríguez") || rawMsgs.includes("msg-1"))) {
+      localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify([]));
+    }
+  } catch {
+    // Ignore storage parse errors
+  }
+}
 
 export const DEFAULT_SETTINGS: AppSettings = {
   language: "es",
@@ -327,28 +377,17 @@ export function generateUniqueTeacherCode(): string {
   return `PROF-${numPart}-${l1}${l2}`;
 }
 
-export const DEFAULT_TEACHER_ACCOUNTS: TeacherAccount[] = [
-  {
-    id: "teach-default-1",
-    email: "docente@tuddy.edu",
-    password: "profesor2025",
-    uniqueCode: "PROF-2025-TD",
-    teacherName: "Prof. Tuddy",
-    schoolName: "Colegio Bicentenario",
-    subjectFocus: "Matemáticas y Ciencias",
-    gradingScale: "0-20",
-    createdAt: "2025-03-01T08:00:00.000Z",
-  }
-];
+export const DEFAULT_TEACHER_ACCOUNTS: TeacherAccount[] = [];
 
 export function getStoredTeacherAccounts(): TeacherAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TEACHER_ACCOUNTS);
-    if (!raw) return DEFAULT_TEACHER_ACCOUNTS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TEACHER_ACCOUNTS;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(a => a.id !== "teach-default-1" && a.email !== "docente@tuddy.edu");
   } catch {
-    return DEFAULT_TEACHER_ACCOUNTS;
+    return [];
   }
 }
 
@@ -359,7 +398,12 @@ export function saveTeacherAccounts(accounts: TeacherAccount[]): void {
 export function getActiveTeacherAccount(): TeacherAccount | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TEACHER_ACTIVE_ACCOUNT);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.email !== "docente@tuddy.edu" && parsed.id !== "teach-default-1") {
+        return parsed;
+      }
+    }
     const accounts = getStoredTeacherAccounts();
     return accounts[0] || null;
   } catch {
@@ -513,219 +557,31 @@ export function verifyTeacherCredentials(
 }
 
 export const DEFAULT_TEACHER_CONFIG: TeacherConfig = {
-  accessCode: "PROF-2025-TD",
-  uniqueCode: "PROF-2025-TD",
-  email: "docente@tuddy.edu",
-  teacherName: "Prof. Tuddy",
-  schoolName: "Colegio Bicentenario",
-  subjectFocus: "Matemáticas y Ciencias",
+  accessCode: "",
+  uniqueCode: "",
+  email: "",
+  teacherName: "",
+  schoolName: "",
+  subjectFocus: "",
   gradingScale: "0-20",
 };
 
-export const INITIAL_TEACHER_CLASSROOMS: TeacherClassroom[] = [
-  {
-    id: "class-3sec-b",
-    grade: "3° Secundaria",
-    section: "B",
-    subject: "Matemáticas",
-    academicYear: "2025",
-    roomOrSchedule: "Aula 204 - Lunes y Miércoles 8:00 AM",
-    students: [
-      { id: "stu-1", orderNumber: 1, fullName: "Alejandro Morales Rivera", guardianContact: "+51 987 654 321", attendanceToday: "present" },
-      { id: "stu-2", orderNumber: 2, fullName: "Camila Fernández Soto", guardianContact: "+51 912 345 678", attendanceToday: "present" },
-      { id: "stu-3", orderNumber: 3, fullName: "Diego Navarro Quiroga", guardianContact: "+51 933 221 100", attendanceToday: "late", notes: "Llegó 10 min tarde por transporte" },
-      { id: "stu-4", orderNumber: 4, fullName: "Lucía Mendoza Vargas", guardianContact: "+51 944 556 677", attendanceToday: "present" },
-      { id: "stu-5", orderNumber: 5, fullName: "Mateo Castillo Romero", guardianContact: "+51 999 888 777", attendanceToday: "excused", notes: "Falta justificada por cita médica" },
-      { id: "stu-6", orderNumber: 6, fullName: "Sofía Ramos Aliaga", guardianContact: "+51 977 665 544", attendanceToday: "present", specialNeeds: "DUA: Requiere apoyo visual y esquemas gráficos" },
-    ],
-    attendanceByDate: {
-      "2026-09-17": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "late", justification: "Llegó tarde por transporte" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "excused", justification: "Cita médica programada (Certificado entregado)" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-16": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "excused", justification: "Reposo médico odontológico" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-15": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "absent" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-12": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "late", justification: "Tardanza leve 5 min" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-10": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "excused", justification: "Permiso de duelo familiar" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-08": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-05": {
-        "stu-1": { status: "late" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      },
-      "2026-09-01": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      },
-      "2026-08-28": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "absent" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      },
-      "2026-08-25": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "excused", justification: "Representación deportiva escolar" },
-        "stu-6": { status: "present" },
-      },
-      "2025-03-15": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "present" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "excused", justification: "Ausencia justificada por salud" },
-        "stu-6": { status: "present" },
-      },
-      "2025-03-10": {
-        "stu-1": { status: "present" },
-        "stu-2": { status: "present" },
-        "stu-3": { status: "late" },
-        "stu-4": { status: "present" },
-        "stu-5": { status: "present" },
-        "stu-6": { status: "present" },
-      }
-    },
-    createdAt: "2025-03-01T08:00:00.000Z",
-    updatedAt: "2025-03-10T10:00:00.000Z",
-  },
-  {
-    id: "class-1sec-a",
-    grade: "1° Secundaria",
-    section: "A",
-    subject: "Ciencias Naturales",
-    academicYear: "2025",
-    roomOrSchedule: "Laboratorio 1 - Martes 10:30 AM",
-    students: [
-      { id: "stu-101", orderNumber: 1, fullName: "Bruno Silva Castro", attendanceToday: "present" },
-      { id: "stu-102", orderNumber: 2, fullName: "Elena Torres Vega", attendanceToday: "present" },
-      { id: "stu-103", orderNumber: 3, fullName: "Gabriel Poma Paredes", attendanceToday: "present" },
-      { id: "stu-104", orderNumber: 4, fullName: "Valeria Guzmán León", attendanceToday: "present" },
-    ],
-    attendanceByDate: {
-      "2026-09-17": {
-        "stu-101": { status: "present" },
-        "stu-102": { status: "present" },
-        "stu-103": { status: "present" },
-        "stu-104": { status: "present" },
-      },
-      "2026-09-16": {
-        "stu-101": { status: "present" },
-        "stu-102": { status: "excused", justification: "Permiso de salud" },
-        "stu-103": { status: "present" },
-        "stu-104": { status: "present" },
-      }
-    },
-    createdAt: "2025-03-02T09:00:00.000Z",
-    updatedAt: "2025-03-10T10:00:00.000Z",
-  }
-];
+export const INITIAL_TEACHER_CLASSROOMS: TeacherClassroom[] = [];
 
-export const INITIAL_TEACHER_ASSIGNMENTS: TeacherAssignment[] = [
-  {
-    id: "assign-1",
-    classroomId: "class-3sec-b",
-    title: "Práctica de Modelado: Ecuaciones Cuadráticas en Proyectos Reales",
-    subject: "Matemáticas",
-    topic: "Ecuaciones Cuadráticas",
-    dueDate: "2025-03-25",
-    maxScore: 20,
-    bloomLevel: "aplicar",
-    instructions: "Resolver los 3 problemas de tiro parabólico y optimización de áreas. Justificar con el discriminante si las raíces son reales.",
-    rubricCriteria: [
-      { criterion: "Planteamiento algebraico y modelo", points: 8, description: "Identifica variables y formula la ecuación correcta." },
-      { criterion: "Procedimiento y resolución matemática", points: 8, description: "Aplica la fórmula general o factorización sin errores." },
-      { criterion: "Interpretación en contexto real y conclusiones", points: 4, description: "Explica qué significa el resultado en el contexto del problema." }
-    ],
-    studentRecords: {
-      "stu-1": { studentId: "stu-1", status: "graded", score: 19, feedback: "Excelente deducción del vértice y óptima gráfica.", checkedByTeacher: true },
-      "stu-2": { studentId: "stu-2", status: "graded", score: 18, feedback: "Muy buen procedimiento, revisar unidades finales.", checkedByTeacher: true },
-      "stu-3": { studentId: "stu-3", status: "submitted", score: 15, feedback: "Buen intento, falta detallar la interpretación.", checkedByTeacher: true },
-      "stu-4": { studentId: "stu-4", status: "submitted", feedback: "Entregado a tiempo, pendiente de revisión." },
-      "stu-5": { studentId: "stu-5", status: "pending" },
-      "stu-6": { studentId: "stu-6", status: "graded", score: 20, feedback: "¡Impecable representación visual y esquemas DUA!", checkedByTeacher: true },
-    },
-    createdAt: "2025-03-12T10:00:00.000Z",
-  }
-];
+export const INITIAL_TEACHER_ASSIGNMENTS: TeacherAssignment[] = [];
 
-export const INITIAL_TEACHER_EXAMS: TeacherExamRecord[] = [
-  {
-    id: "exam-1",
-    classroomId: "class-3sec-b",
-    title: "Examen Mensual 1: Álgebra y Ecuaciones",
-    subject: "Matemáticas",
-    topic: "Álgebra y Funciones",
-    date: "2025-03-15",
-    maxScore: 20,
-    passingScore: 11,
-    weightPercentage: 30,
-    grades: {
-      "stu-1": { studentId: "stu-1", score: 18, attended: true, comments: "Excelente dominio conceptual" },
-      "stu-2": { studentId: "stu-2", score: 17, attended: true },
-      "stu-3": { studentId: "stu-3", score: 13, attended: true, comments: "Reforzar despeje de raíces complejas" },
-      "stu-4": { studentId: "stu-4", score: 16, attended: true },
-      "stu-5": { studentId: "stu-5", score: 0, attended: false, comments: "Ausente justificado - programar recuperación" },
-      "stu-6": { studentId: "stu-6", score: 19, attended: true, comments: "Gran razonamiento deductivo" },
-    },
-    createdAt: "2025-03-15T12:00:00.000Z",
-  }
-];
+export const INITIAL_TEACHER_EXAMS: TeacherExamRecord[] = [];
 
 export function getStoredTeacherConfig(): TeacherConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TEACHER_CONFIG);
-    return raw ? { ...DEFAULT_TEACHER_CONFIG, ...JSON.parse(raw) } : DEFAULT_TEACHER_CONFIG;
+    if (!raw) return DEFAULT_TEACHER_CONFIG;
+    const parsed = JSON.parse(raw);
+    // If previously saved config was the old dummy demo, reset it
+    if (parsed.email === "docente@tuddy.edu" && parsed.teacherName === "Prof. Tuddy") {
+      return DEFAULT_TEACHER_CONFIG;
+    }
+    return { ...DEFAULT_TEACHER_CONFIG, ...parsed };
   } catch {
     return DEFAULT_TEACHER_CONFIG;
   }
@@ -748,37 +604,56 @@ export function setTeacherAuthenticated(auth: boolean): void {
   localStorage.setItem(STORAGE_KEYS.TEACHER_AUTH, auth ? "true" : "false");
 }
 
+export function generateClassCode(grade?: string, section?: string, subject?: string): string {
+  const g = (grade || "SEC").replace(/[^a-zA-Z0-9]/g, "").slice(0, 3).toUpperCase() || "AUL";
+  const s = (section || "A").replace(/[^a-zA-Z0-9]/g, "").slice(0, 1).toUpperCase() || "A";
+  const num = Math.floor(100 + Math.random() * 900);
+  return `${g}-${s}-${num}`;
+}
+
+export function generateStudentCode(orderNumber: number, fullName: string): string {
+  const cleanParts = fullName
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const initials = cleanParts.map((p) => p[0].toUpperCase()).slice(0, 2).join("") || "AL";
+  const num = (orderNumber || 1).toString().padStart(2, "0");
+  const randomSuffix = Math.floor(10 + Math.random() * 90);
+  return `EST-${num}${initials}${randomSuffix}`;
+}
+
 export function getStoredTeacherClassrooms(): TeacherClassroom[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TEACHER_CLASSROOMS);
-    if (!raw) return INITIAL_TEACHER_CLASSROOMS;
+    if (!raw) return [];
     const classrooms: TeacherClassroom[] = JSON.parse(raw);
-    if (!Array.isArray(classrooms) || classrooms.length === 0) return INITIAL_TEACHER_CLASSROOMS;
+    if (!Array.isArray(classrooms) || classrooms.length === 0) return [];
     
-    // Ensure all classrooms have attendanceByDate initialized
-    return classrooms.map(cls => {
-      const demoMatch = INITIAL_TEACHER_CLASSROOMS.find(i => i.id === cls.id);
-      if (!cls.attendanceByDate || Object.keys(cls.attendanceByDate).length === 0) {
-        const todayStr = new Date().toISOString().split("T")[0];
-        const initialTodayRecord: Record<string, StudentAttendanceEntry> = {};
-        cls.students.forEach(s => {
-          initialTodayRecord[s.id] = {
-            status: s.attendanceToday || "present",
-            justification: s.attendanceToday === "excused" ? (s.notes || "Falta justificada") : undefined
-          };
-        });
-        return {
-          ...cls,
-          attendanceByDate: {
-            ...(demoMatch?.attendanceByDate || {}),
-            [todayStr]: initialTodayRecord,
-          }
-        };
-      }
-      return cls;
+    // Filter out previous dummy demo classrooms so teacher area starts empty
+    const realClassrooms = classrooms.filter(
+      cls => cls.id !== "class-3sec-b" && cls.id !== "class-1sec-a"
+    );
+
+    // Ensure all classrooms have classCode, students have studentCode, and arrays initialized
+    return realClassrooms.map(cls => {
+      const classCode = cls.classCode || generateClassCode(cls.grade, cls.section, cls.subject);
+      const students = (cls.students || []).map((s, idx) => ({
+        ...s,
+        studentCode: s.studentCode || generateStudentCode(s.orderNumber || idx + 1, s.fullName),
+      }));
+
+      return {
+        ...cls,
+        classCode,
+        students,
+        attendanceByDate: cls.attendanceByDate || {},
+        announcements: cls.announcements || [],
+        messages: cls.messages || [],
+      };
     });
   } catch {
-    return INITIAL_TEACHER_CLASSROOMS;
+    return [];
   }
 }
 
@@ -786,12 +661,44 @@ export function saveTeacherClassrooms(classrooms: TeacherClassroom[]): void {
   localStorage.setItem(STORAGE_KEYS.TEACHER_CLASSROOMS, JSON.stringify(classrooms));
 }
 
+// Student Session & Portal Helpers
+export function getStoredStudentSession(): StudentActiveSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.STUDENT_ACTIVE_SESSION);
+    if (!raw) return null;
+    const session: StudentActiveSession = JSON.parse(raw);
+    if (
+      session?.institutionCode === "COL-SAN-8921" ||
+      session?.institutionId === "inst-san-agustin" ||
+      session?.studentCode === "EST-101" ||
+      session?.studentName === "Sofía Mendoza Castillo"
+    ) {
+      localStorage.removeItem(STORAGE_KEYS.STUDENT_ACTIVE_SESSION);
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStudentSession(session: StudentActiveSession | null): void {
+  if (!session) {
+    localStorage.removeItem(STORAGE_KEYS.STUDENT_ACTIVE_SESSION);
+  } else {
+    localStorage.setItem(STORAGE_KEYS.STUDENT_ACTIVE_SESSION, JSON.stringify(session));
+  }
+}
+
 export function getStoredTeacherAssignments(): TeacherAssignment[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TEACHER_ASSIGNMENTS);
-    return raw ? JSON.parse(raw) : INITIAL_TEACHER_ASSIGNMENTS;
+    if (!raw) return [];
+    const list: TeacherAssignment[] = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    return list.filter(a => a.id !== "assign-1");
   } catch {
-    return INITIAL_TEACHER_ASSIGNMENTS;
+    return [];
   }
 }
 
@@ -802,9 +709,12 @@ export function saveTeacherAssignments(assignments: TeacherAssignment[]): void {
 export function getStoredTeacherExams(): TeacherExamRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TEACHER_EXAMS);
-    return raw ? JSON.parse(raw) : INITIAL_TEACHER_EXAMS;
+    if (!raw) return [];
+    const list: TeacherExamRecord[] = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    return list.filter(e => e.id !== "exam-1");
   } catch {
-    return INITIAL_TEACHER_EXAMS;
+    return [];
   }
 }
 
@@ -824,4 +734,476 @@ export function getStoredTeacherMaterials(): TeacherSavedMaterial[] {
 export function saveTeacherMaterials(materials: TeacherSavedMaterial[]): void {
   localStorage.setItem(STORAGE_KEYS.TEACHER_MATERIALS, JSON.stringify(materials));
 }
+
+// Student Submission & Message Helpers
+export function submitStudentWork(
+  assignmentId: string,
+  studentId: string,
+  submissionContent: string
+): boolean {
+  try {
+    const assignments = getStoredTeacherAssignments();
+    const target = assignments.find((a) => a.id === assignmentId);
+    if (!target) return false;
+
+    const previousRecord = target.studentRecords?.[studentId] || { studentId, status: "pending" };
+    const updatedRecord = {
+      ...previousRecord,
+      status: "submitted" as const,
+      submittedAt: new Date().toISOString(),
+      submissionContent: submissionContent.trim(),
+    };
+
+    const updatedAssignments = assignments.map((a) =>
+      a.id === assignmentId
+        ? {
+            ...a,
+            studentRecords: {
+              ...(a.studentRecords || {}),
+              [studentId]: updatedRecord,
+            },
+          }
+        : a
+    );
+
+    saveTeacherAssignments(updatedAssignments);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function addClassroomAnnouncement(
+  classroomId: string,
+  announcement: Omit<ClassroomAnnouncement, "id" | "createdAt">
+): boolean {
+  try {
+    const classrooms = getStoredTeacherClassrooms();
+    const newAnnouncement: ClassroomAnnouncement = {
+      ...announcement,
+      id: `ann-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = classrooms.map((c) =>
+      c.id === classroomId
+        ? {
+            ...c,
+            announcements: [newAnnouncement, ...(c.announcements || [])],
+            updatedAt: new Date().toISOString(),
+          }
+        : c
+    );
+
+    saveTeacherClassrooms(updated);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function sendStudentTeacherMessage(
+  classroomId: string,
+  message: Omit<StudentTeacherMessage, "id" | "timestamp">
+): boolean {
+  try {
+    const classrooms = getStoredTeacherClassrooms();
+    const newMsg: StudentTeacherMessage = {
+      ...message,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    const updated = classrooms.map((c) =>
+      c.id === classroomId
+        ? {
+            ...c,
+            messages: [...(c.messages || []), newMsg],
+            updatedAt: new Date().toISOString(),
+          }
+        : c
+    );
+
+    saveTeacherClassrooms(updated);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// =======================================================
+// INSTITUTION & SCHOOL PORTAL STORAGE MANAGEMENT
+// =======================================================
+
+export function generateInstitutionCode(name: string): string {
+  const clean = name
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+    .trim()
+    .toUpperCase();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  const prefix = parts.length > 1
+    ? (parts[0].slice(0, 3) + "-" + parts[1].slice(0, 3))
+    : parts[0]?.slice(0, 6) || "COL";
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}-${randomNum}`;
+}
+
+export function getStoredInstitutions(): EducationalInstitution[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.INSTITUTIONS);
+    if (!raw) {
+      return [];
+    }
+    const list: EducationalInstitution[] = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    
+    // Completely filter out legacy demo institution
+    const cleanList = list.filter(
+      (inst) => inst?.id !== "inst-san-agustin" && inst?.institutionCode !== "COL-SAN-8921"
+    );
+    if (cleanList.length !== list.length) {
+      localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(cleanList));
+    }
+    return cleanList;
+  } catch {
+    return [];
+  }
+}
+
+export function saveInstitutions(institutions: EducationalInstitution[]): void {
+  const cleanList = (institutions || []).filter(
+    (inst) => inst?.id !== "inst-san-agustin" && inst?.institutionCode !== "COL-SAN-8921"
+  );
+  localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(cleanList));
+}
+
+export function registerNewInstitution(
+  data: Partial<EducationalInstitution>
+): EducationalInstitution {
+  const institutions = getStoredInstitutions();
+  const name = data.name?.trim() || "Colegio";
+  const code = generateInstitutionCode(name);
+  const newInst: EducationalInstitution = {
+    id: `inst-${Date.now()}`,
+    institutionCode: code,
+    name,
+    shortName: data.shortName?.trim() || name.split(" ").slice(0, 2).join(" "),
+    country: data.country || "Perú",
+    city: data.city || "Lima",
+    educationLevels: data.educationLevels || ["Primaria", "Secundaria"],
+    directorName: data.directorName || "Dirección General",
+    contactEmail: data.contactEmail || "",
+    phone: data.phone || "",
+    slogan: data.slogan || "Educación de Calidad y Formación Integral",
+    registeredAt: new Date().toISOString(),
+    masterAdminKey: data.masterAdminKey?.trim() || "",
+    officialRegistryType: data.officialRegistryType || "codigo_modular",
+    officialRegistryCode: data.officialRegistryCode?.trim() || "",
+    officialResolutionNumber: data.officialResolutionNumber?.trim() || "",
+    isVerified: true,
+    subjects: data.subjects || [
+      "Matemáticas",
+      "Comunicación y Literatura",
+      "Ciencias y Tecnología",
+      "Ciencias Sociales e Historia",
+      "Inglés",
+    ],
+    teachers: data.teachers || [],
+    students: data.students || [],
+    announcements: data.announcements || [
+      {
+        id: `ann-${Date.now()}`,
+        title: `Bienvenida a ${name}`,
+        content: `Inicio del portal institucional oficial de ${name} en Tuddy.`,
+        author: data.directorName || "Dirección",
+        role: "Dirección",
+        date: "Hoy",
+        important: true,
+      },
+    ],
+  };
+
+  const updated = [newInst, ...institutions];
+  saveInstitutions(updated);
+  return newInst;
+}
+
+export function findInstitutionByCode(code: string): EducationalInstitution | null {
+  const clean = code.trim().toUpperCase();
+  if (!clean) return null;
+  const list = getStoredInstitutions();
+  return (
+    list.find(
+      (inst) =>
+        inst.institutionCode.toUpperCase() === clean ||
+        inst.id.toUpperCase() === clean
+    ) || null
+  );
+}
+
+export function updateInstitution(
+  idOrUpdated: string | EducationalInstitution,
+  partialData?: Partial<EducationalInstitution>
+): EducationalInstitution | null {
+  const institutions = getStoredInstitutions();
+  if (typeof idOrUpdated === "object") {
+    const index = institutions.findIndex((i) => i.id === idOrUpdated.id);
+    if (index !== -1) {
+      institutions[index] = idOrUpdated;
+      saveInstitutions(institutions);
+      return idOrUpdated;
+    }
+    return null;
+  }
+  const index = institutions.findIndex((i) => i.id === idOrUpdated);
+  if (index !== -1) {
+    const updated = { ...institutions[index], ...partialData };
+    institutions[index] = updated;
+    saveInstitutions(institutions);
+    return updated;
+  }
+  return null;
+}
+
+export function verifyInstitutionMasterKey(institutionCode: string, inputKey: string): boolean {
+  const inst = findInstitutionByCode(institutionCode);
+  if (!inst) return false;
+  const cleanInput = inputKey.trim().toUpperCase();
+  const savedKey = (inst.masterAdminKey || "").trim().toUpperCase();
+  if (!savedKey) return false;
+  return cleanInput === savedKey;
+}
+
+export function findStudentInInstitution(
+  institutionCode: string,
+  studentCode: string
+): { institution: EducationalInstitution; student: EducationalInstitutionStudent } | null {
+  const inst = findInstitutionByCode(institutionCode);
+  if (!inst) return null;
+
+  const cleanStudent = studentCode.trim().toUpperCase();
+  const student = inst.students.find(
+    (s) =>
+      s.studentCode.toUpperCase() === cleanStudent ||
+      s.studentId.toUpperCase() === cleanStudent
+  );
+
+  if (!student) return null;
+  return { institution: inst, student };
+}
+
+// School Tasks across all subjects for an enrolled student
+export interface SchoolStudentTask {
+  id: string;
+  institutionId: string;
+  subject: string;
+  teacherName: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  maxScore: number;
+  status: "pending" | "submitted" | "graded";
+  score?: number;
+  feedback?: string;
+  submittedAt?: string;
+  submissionText?: string;
+  submissionLink?: string;
+}
+
+export function getStoredSchoolTasks(): SchoolStudentTask[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SCHOOL_TASKS);
+    if (!raw) {
+      return [];
+    }
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    const cleanList = list.filter(
+      (t: SchoolStudentTask) =>
+        t?.institutionId !== "inst-san-agustin" &&
+        !t?.id?.startsWith("stask-")
+    );
+    if (cleanList.length !== list.length) {
+      localStorage.setItem(STORAGE_KEYS.SCHOOL_TASKS, JSON.stringify(cleanList));
+    }
+    return cleanList;
+  } catch {
+    return [];
+  }
+}
+
+export function saveSchoolTasks(tasks: SchoolStudentTask[]): void {
+  const cleanList = (tasks || []).filter(
+    (t) => t?.institutionId !== "inst-san-agustin" && !t?.id?.startsWith("stask-")
+  );
+  localStorage.setItem(STORAGE_KEYS.SCHOOL_TASKS, JSON.stringify(cleanList));
+}
+
+export function submitSchoolStudentTask(
+  taskId: string,
+  submissionText: string,
+  submissionLink?: string
+): boolean {
+  try {
+    const tasks = getStoredSchoolTasks();
+    const updated = tasks.map((t) =>
+      t.id === taskId
+        ? {
+            ...t,
+            status: "submitted" as const,
+            submittedAt: "Entregado hoy a las " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            submissionText,
+            submissionLink,
+          }
+        : t
+    );
+    saveSchoolTasks(updated);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// School Grades by subject
+export interface SchoolSubjectGradeRecord {
+  subject: string;
+  teacherName: string;
+  period: string; // ej: "II Bimestre 2025"
+  examAverage: number;
+  tasksAverage: number;
+  participationScore: number;
+  finalGrade: number;
+  teacherObservation: string;
+  status: "approved" | "recovery";
+}
+
+export function getSchoolSubjectGrades(): SchoolSubjectGradeRecord[] {
+  // Returns empty initial state, awaiting real grades entered by teachers/institution
+  return [];
+}
+
+// School Attendance Records
+export interface SchoolAttendanceDay {
+  date: string;
+  dayName: string;
+  status: "present" | "late" | "absent" | "excused";
+  timeRecorded: string;
+  notes?: string;
+}
+
+export function getSchoolAttendanceRecord(): SchoolAttendanceDay[] {
+  // Returns empty initial state, awaiting real attendance recorded by the school
+  return [];
+}
+
+// School Messages organized by Teacher / Subject
+export interface SchoolDirectMessage {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  subject: string;
+  sender: "teacher" | "student";
+  text: string;
+  timestamp: string;
+}
+
+export function getStoredSchoolMessages(): SchoolDirectMessage[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SCHOOL_MESSAGES);
+    if (!raw) {
+      return [];
+    }
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    const cleanList = list.filter(
+      (m: SchoolDirectMessage) =>
+        m?.id !== "msg-1" &&
+        m?.id !== "msg-2" &&
+        m?.id !== "msg-3" &&
+        m?.id !== "msg-4"
+    );
+    if (cleanList.length !== list.length) {
+      localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify(cleanList));
+    }
+    return cleanList;
+  } catch {
+    return [];
+  }
+}
+
+export function sendSchoolDirectMessage(
+  teacherId: string,
+  teacherName: string,
+  subject: string,
+  text: string
+): SchoolDirectMessage {
+  const current = getStoredSchoolMessages();
+  const newMsg: SchoolDirectMessage = {
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    teacherId,
+    teacherName,
+    subject,
+    sender: "student",
+    text,
+    timestamp: "Hoy a las " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  };
+
+  const updated = [...current, newMsg];
+  localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify(updated));
+
+  setTimeout(() => {
+    const autoReply: SchoolDirectMessage = {
+      id: `msg-reply-${Date.now()}`,
+      teacherId,
+      teacherName,
+      subject,
+      sender: "teacher",
+      text: `Hola, he recibido tu mensaje sobre ${subject}. Lo tomaré en cuenta para nuestra próxima sesión de clase. ¡Buen trabajo por tu dedicación! 📚✨`,
+      timestamp: "Hace un momento",
+    };
+    const refreshed = getStoredSchoolMessages();
+    localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify([...refreshed, autoReply]));
+  }, 1200);
+
+  return newMsg;
+}
+
+export function sendSchoolDirectMessage(
+  teacherId: string,
+  teacherName: string,
+  subject: string,
+  text: string
+): SchoolDirectMessage {
+  const current = getStoredSchoolMessages();
+  const newMsg: SchoolDirectMessage = {
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    teacherId,
+    teacherName,
+    subject,
+    sender: "student",
+    text,
+    timestamp: "Hoy a las " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  };
+
+  const updated = [...current, newMsg];
+  localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify(updated));
+
+  setTimeout(() => {
+    const autoReply: SchoolDirectMessage = {
+      id: `msg-reply-${Date.now()}`,
+      teacherId,
+      teacherName,
+      subject,
+      sender: "teacher",
+      text: `Hola, he recibido tu mensaje sobre ${subject}. Lo tomaré en cuenta para nuestra próxima sesión de clase. ¡Buen trabajo por tu dedicación! 📚✨`,
+      timestamp: "Hace un momento",
+    };
+    const refreshed = getStoredSchoolMessages();
+    localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify([...refreshed, autoReply]));
+  }, 1200);
+
+  return newMsg;
+}
+
 

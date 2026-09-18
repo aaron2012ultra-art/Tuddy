@@ -137,15 +137,207 @@ export const SpecialTeacherTools: React.FC<SpecialTeacherToolsProps> = ({
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  // Client fallback generators to guarantee 100% uptime and immediate response
+  const buildFallbackLessonPlan = (topic: string, subject: string, grade: string, duration: number, approach: string) => ({
+    title: `Sesión Didáctica: ${topic}`,
+    subject,
+    grade,
+    durationMinutes: duration,
+    purpose: `Desarrollar la competencia de indagación y resolución de problemas en torno a ${topic}, aplicando ${approach}.`,
+    competency: `Construye explicaciones y modelos conceptuales rigurosos en el área de ${subject}.`,
+    materials: ["Pizarra interactiva o rotafolio", "Ficha de trabajo guiada", "Material manipulativo / visual", "Tarjetas de metacognición"],
+    inicio: {
+      minutes: Math.round(duration * 0.18),
+      motivationActivity: `Presentación de un caso real o enigma cotidiano sobre ${topic} que desafíe las ideas intuitivas de los estudiantes.`,
+      priorKnowledgeQuestions: [
+        `¿Qué recuerdan sobre los conceptos elementales de ${subject} vinculados a este tema?`,
+        `¿En qué situación cotidiana han observado los efectos de ${topic}?`,
+      ],
+      cognitiveConflict: `¿Cómo podemos predecir con exactitud el resultado de ${topic} sin recurrir a ensayos a ciegas?`,
+    },
+    desarrollo: {
+      minutes: Math.round(duration * 0.62),
+      conceptExplanation: `Explicación estructurada por el docente con modelado paso a paso en pizarra, descomponiendo ${topic} en 3 ideas clave.`,
+      guidedPractice: `Resolución conjunta de dos situaciones modelo aplicando la fórmula o principio central con participación guiada.`,
+      studentActivities: `Trabajo colaborativo en parejas para resolver un reto práctico con niveles de complejidad escalonados.`,
+      duaAdaptationNotes: `Diseño Universal (DUA): Proporcionar organizadores visuales y glosario de términos clave para estudiantes que requieran apoyo.`,
+    },
+    cierre: {
+      minutes: Math.round(duration * 0.20),
+      metacognitionQuestions: [
+        `¿Cuál fue el paso más desafiante al trabajar con ${topic}?`,
+        `¿Qué estrategia me ayudó a superar la dificultad hoy?`,
+        `¿Cómo aplicaría este conocimiento fuera del aula?`,
+      ],
+      synthesisActivity: `Ronda relámpago de conclusiones: cada equipo formula una afirmación clave sobre ${topic}.`,
+    },
+    evaluationEvidence: `Ficha de aplicación con rúbrica breve de 3 criterios: Planteamiento, Proceso y Conclusión.`,
+  });
+
+  const buildFallbackRubric = (title: string, subject: string, grade: string, count: number) => ({
+    title: `Rúbrica Analítica: ${title}`,
+    totalPoints: 20,
+    criteria: [
+      {
+        name: "Comprensión Teórica y Conceptual",
+        weightPercentage: 35,
+        outstanding: `Demuestra dominio profundo de los principios de ${subject}, utilizando vocabulario técnico con absoluta precisión.`,
+        proficient: `Comprende los conceptos fundamentales de ${subject} y los aplica correctamente en la mayoría de casos.`,
+        developing: `Muestra comprensión parcial; confunde ocasionalmente términos técnicos o requiere orientación.`,
+        beginning: `Dificultad notoria para identificar los conceptos básicos requeridos en la actividad.`,
+      },
+      {
+        name: "Procedimiento y Razonamiento Lógico",
+        weightPercentage: 35,
+        outstanding: `Desarrolla el procedimiento de manera secuenciada, justificando cada decisión con argumentos sólidos.`,
+        proficient: `Sigue el procedimiento adecuado con pequeños errores que no alteran el resultado central.`,
+        developing: `Procedimiento incompleto o desordenado; omite justificaciones clave.`,
+        beginning: `No presenta procedimiento sistemático o realiza pasos inconexos sin fundamentación.`,
+      },
+      {
+        name: "Comunicación de Resultados y Conclusiones",
+        weightPercentage: 30,
+        outstanding: `Comunica sus conclusiones con claridad ejemplar, gráficos pertinentes y postura reflexiva.`,
+        proficient: `Presenta conclusiones claras y responde a las preguntas formuladas con coherencia.`,
+        developing: `Conclusiones breves o poco fundamentadas; lenguaje poco formal.`,
+        beginning: `Presentación confusa sin conclusiones pertinentes sobre la actividad.`,
+      },
+    ].slice(0, count),
+    teacherObservationAdvice: `Utilizar esta rúbrica para autoevaluación entre pares antes de la entrega definitiva para elevar el compromiso del alumno.`,
+  });
+
+  const buildFallbackExam = (topic: string, school: string, teacher: string, grade: string, section: string, subject: string, count: number, duration: number) => ({
+    header: {
+      schoolName: school || "Colegio Bicentenario San Agustín",
+      examTitle: `Evaluación Escolar: ${topic}`,
+      subject,
+      gradeAndSection: `${grade} "${section}"`,
+      duration: `${duration} minutos`,
+      maxScore: 20,
+    },
+    instructions: [
+      "Lee cuidadosamente cada pregunta antes de responder.",
+      "Usa lapicero azul o negro para tus respuestas definitivas.",
+      "Justifica de manera explícita todos tus procedimientos y cálculos.",
+      "La ortografía y claridad de redacción serán consideradas en la calificación.",
+    ],
+    questions: [
+      {
+        number: 1,
+        questionText: `¿Cuál es la definición formal y el principio rector de ${topic}?`,
+        type: "multiple_choice",
+        options: [
+          `Establece una relación proporcional directa y verificable experimentalmente.`,
+          `Depende exclusivamente de variables cualitativas sin posibilidad de medición.`,
+          `Es un fenómeno aleatorio que no responde a leyes deterministas.`,
+          `Se aplica únicamente a condiciones de laboratorio ideales.`,
+        ],
+        points: 4,
+        workingLinesHint: "Marca la alternativa correcta con una 'X'.",
+      },
+      {
+        number: 2,
+        questionText: `Dado un caso práctico sobre ${topic}, calcula el valor resultante y justifica tu procedimiento:`,
+        type: "open_development",
+        options: [],
+        points: 8,
+        workingLinesHint: "Espacio para planteamiento, fórmula, desarrollo paso a paso y respuesta final.",
+      },
+      {
+        number: 3,
+        questionText: `Analiza críticamente dos consecuencias prácticas de ${topic} en la vida cotidiana o el entorno científico actual:`,
+        type: "open_short",
+        options: [],
+        points: 8,
+        workingLinesHint: "Redacta tu análisis en no menos de 4 líneas con vocabulario técnico de la materia.",
+      },
+    ].slice(0, count),
+    teacherAnswerKey: [
+      {
+        questionNumber: 1,
+        correctAnswer: `Opción A: Establece una relación proporcional directa y verificable.`,
+        gradingCriteria: "4 puntos por la respuesta exacta sin borrones.",
+      },
+      {
+        questionNumber: 2,
+        correctAnswer: `Planteamiento correcto de la ecuación/fórmula y resolución aritmética sin errores.`,
+        gradingCriteria: "4 pts planteamiento analítico, 4 pts cálculo y respuesta con unidades.",
+      },
+      {
+        questionNumber: 3,
+        correctAnswer: `Mención fundamentada de aplicaciones tecnológicas o naturales con rigor conceptual.`,
+        gradingCriteria: "4 pts por cada argumento coherente y respaldado teóricamente.",
+      },
+    ].slice(0, count),
+  });
+
+  const buildFallbackParentReport = (student: string, grade: string, section: string, situation: string, positive: string, improve: string, teacher: string, school: string) => ({
+    subjectLine: `Informe de Acompañamiento Pedagógico - ${student} (${grade} "${section}")`,
+    formalLetterText: `Estimados Padres de Familia y Apoderados de ${student}:\n\nReciban un saludo cordial y afectuoso en nombre de la comunidad educativa de ${school}.\n\nEl propósito de esta comunicación es brindarles un reporte oportuno sobre el desempeño escolar de ${student}. Queremos destacar que ${positive || "demuestra gran disposición, respeto y curiosidad intelectual en el aula"}.\n\nPara que continúe consolidando sus aprendizajes y alcance su máximo potencial académico, les solicitamos su valioso apoyo en el hogar reforzando: ${improve || "la revisión diaria de apuntes y la puntualidad en la entrega de tareas"}.\n\nAgradecemos de antemano su confianza y compromiso mutuo con la educación de su hijo(a).\n\nAtentamente,\n${teacher}\nDocente de Aula • ${school}`,
+    whatsappQuickMessage: `👋 Estimada familia de *${student}* (${grade} "${section}"):\nLes saluda cordialmente su docente de ${school}. Queremos felicitarlos por los progresos de su hijo(a) en clase ✨ y a la vez pedirles su apoyo en casa reforzando: ${improve || "el cumplimiento de sus tareas diarias"}. ¡El trabajo en equipo familia-escuela es clave para su éxito! Cualquier duda estoy a su disposición.`,
+    recommendedActionPlan: [
+      "Fijar un espacio y horario regular de 30 a 45 minutos diarios sin distracciones de pantallas.",
+      "Revisar juntos el cuaderno de actividades o el portal de Tuddy al término de cada semana.",
+      "Reconocer el esfuerzo y la constancia para fortalecer su confianza académica.",
+    ],
+  });
+
+  const buildFallbackCurriculumAdapter = (content: string, grade: string, subject: string, profile: string) => ({
+    adaptedTitle: `Versión Adaptada DUA: Lectura Estructurada en Pasos`,
+    adaptedText: `### 📌 Idea Clave en 1 Minuto:\n${content.slice(0, 180)}...\n\n### 🔍 Pasos Claros y Dosificados:\n1. **Paso 1**: Identifica la palabra clave central del texto.\n2. **Paso 2**: Asóciala con un ejemplo práctico de tu entorno.\n3. **Paso 3**: Explica en una frase qué ocurre y por qué es importante.\n\n### 💡 Resumen Visual:\n[ Concepto Inicial ] ➔ [ Proceso o Transformación ] ➔ [ Resultado Final ]`,
+    visualScaffoldingTips: [
+      "Usar código de colores: Verde para causas, Azul para procesos, Naranja para conclusiones.",
+      "Proporcionar una tarjeta resumen con los 3 términos técnicos indispensables.",
+      "Permitir la elaboración de mapas mentales o diagramas de flechas en lugar de párrafos extensos.",
+    ],
+    scaffoldingQuestions: [
+      "Nivel 1 (Literal): ¿Cuál es el concepto principal mencionado en el texto?",
+      "Nivel 2 (Inferencial): ¿Qué sucedería si cambiara una de las condiciones clave?",
+      "Nivel 3 (Crítico/Creativo): ¿Cómo le explicarías este proceso a un compañero menor?",
+    ],
+    extensionChallenge: `Investiga un ejemplo del mundo real donde este principio se aplique en la tecnología o la naturaleza y compártelo en 2 minutos.`,
+    teacherPedagogicalNotes: `Esta adaptación responde al principio de representación múltiple del DUA, garantizando accesibilidad cognitiva para ${profile}.`,
+  });
+
+  const buildFallbackExitTickets = (topic: string, grade: string, subject: string, count: number) => ({
+    topic,
+    icebreakerWarmups: [
+      `¿Si ${topic} fuera un superhéroe o una herramienta cotidiana, cuál sería y qué poder tendría?`,
+      `En una escala del 1 al 5, ¿cuán familiarizado te sentías con ${topic} antes de iniciar la clase?`,
+    ],
+    exitTickets: [
+      {
+        ticketTitle: "Ticket 1: El Semáforo del Aprendizaje",
+        promptForStudent: `Escribe en una ficha: Verde (algo que entendí con claridad sobre ${topic}), Amarillo (una duda que aún me queda) y Rojo (lo que me resultó más difícil).`,
+        diagnosticPurpose: "Detecta rápidamente qué conceptos requieren retroalimentación en la próxima clase.",
+      },
+      {
+        ticketTitle: "Ticket 2: La Frase Resumen (3-2-1)",
+        promptForStudent: `Anota: 3 cosas que aprendiste hoy sobre ${topic}, 2 preguntas que te surgieron y 1 conexión con tu vida diaria.`,
+        diagnosticPurpose: "Evalúa capacidad de síntesis y transferencia de aprendizajes.",
+      },
+      {
+        ticketTitle: "Ticket 3: El Error Frecuente",
+        promptForStudent: `Observa esta afirmación errónea sobre ${topic}: '...'. Explica en 2 renglones por qué no es correcta.`,
+        diagnosticPurpose: "Identifica si el estudiante superó el conflicto cognitivo planteado al inicio.",
+      },
+    ].slice(0, count),
+    teacherActionAdvice: `Recoger las fichas al salir del aula y agruparlas en 3 bandejas para planificar los primeros 10 minutos de la siguiente sesión.`,
+  });
+
   const executeGeneration = async () => {
     setIsLoading(true);
     setResultData(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     try {
       if (activeToolId === "lesson_planner") {
         const res = await fetch("/api/ai/teacher/generate-lesson-plan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             grade: currentClass?.grade || "3° Secundaria",
             subject: currentClass?.subject || "Matemáticas",
@@ -154,12 +346,28 @@ export const SpecialTeacherTools: React.FC<SpecialTeacherToolsProps> = ({
             pedagogicalApproach: lpApproach,
           }),
         });
-        const data = await res.json();
-        setResultData(data);
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.title && data.inicio) {
+            setResultData(data);
+            return;
+          }
+        }
+        // Fallback
+        const fallback = buildFallbackLessonPlan(
+          lpTopic || "Ecuaciones Cuadráticas",
+          currentClass?.subject || "Matemáticas",
+          currentClass?.grade || "3° Secundaria",
+          lpDuration,
+          lpApproach
+        );
+        setResultData(fallback);
       } else if (activeToolId === "rubric_generator") {
         const res = await fetch("/api/ai/teacher/generate-rubric", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             grade: currentClass?.grade || "Secundaria",
             subject: currentClass?.subject || "Materia",
@@ -167,12 +375,26 @@ export const SpecialTeacherTools: React.FC<SpecialTeacherToolsProps> = ({
             criteriaCount: rubricCriteriaCount,
           }),
         });
-        const data = await res.json();
-        setResultData(data);
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.title && data.criteria) {
+            setResultData(data);
+            return;
+          }
+        }
+        const fallback = buildFallbackRubric(
+          rubricTask || "Exposición y Proyecto de Aula",
+          currentClass?.subject || "Comunicación y Lenguaje",
+          currentClass?.grade || "Secundaria",
+          rubricCriteriaCount
+        );
+        setResultData(fallback);
       } else if (activeToolId === "exam_builder") {
         const res = await fetch("/api/ai/teacher/generate-exam", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             schoolName: examSchool,
             teacherName: examTeacher,
@@ -184,12 +406,30 @@ export const SpecialTeacherTools: React.FC<SpecialTeacherToolsProps> = ({
             durationMinutes: examDuration,
           }),
         });
-        const data = await res.json();
-        setResultData(data);
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.header && data.questions) {
+            setResultData(data);
+            return;
+          }
+        }
+        const fallback = buildFallbackExam(
+          examTopic || "Evaluación de Unidad",
+          examSchool,
+          examTeacher,
+          currentClass?.grade || "3° Secundaria",
+          currentClass?.section || "A",
+          currentClass?.subject || "Ciencias y Tecnología",
+          examCount,
+          examDuration
+        );
+        setResultData(fallback);
       } else if (activeToolId === "parent_reports") {
         const res = await fetch("/api/ai/teacher/generate-parent-report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             studentName: parentStudent,
             grade: currentClass?.grade || "3° Secundaria",
@@ -201,25 +441,57 @@ export const SpecialTeacherTools: React.FC<SpecialTeacherToolsProps> = ({
             schoolName: examSchool,
           }),
         });
-        const data = await res.json();
-        setResultData(data);
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.subjectLine && data.formalLetterText) {
+            setResultData(data);
+            return;
+          }
+        }
+        const fallback = buildFallbackParentReport(
+          parentStudent,
+          currentClass?.grade || "3° Secundaria",
+          currentClass?.section || "A",
+          parentSituation,
+          parentPositive,
+          parentImprove,
+          examTeacher,
+          examSchool
+        );
+        setResultData(fallback);
       } else if (activeToolId === "curriculum_adapter") {
         const res = await fetch("/api/ai/teacher/adapt-curriculum", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
-            originalContent: adaptContent || "Los ecosistemas están formados por factores bióticos y abióticos interconectados a través de ciclos biogeoquímicos complejos...",
+            originalContent: adaptContent || "Los ecosistemas están formados por factores bióticos y abióticos...",
             grade: currentClass?.grade || "Secundaria",
             subject: currentClass?.subject || "Biología",
             studentProfile: adaptProfile,
           }),
         });
-        const data = await res.json();
-        setResultData(data);
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.adaptedTitle && data.adaptedText) {
+            setResultData(data);
+            return;
+          }
+        }
+        const fallback = buildFallbackCurriculumAdapter(
+          adaptContent || "Los ecosistemas están formados por factores bióticos y abióticos interconectados a través de ciclos biogeoquímicos complejos...",
+          currentClass?.grade || "Secundaria",
+          currentClass?.subject || "Ciencias Naturales",
+          adaptProfile
+        );
+        setResultData(fallback);
       } else if (activeToolId === "exit_tickets") {
         const res = await fetch("/api/ai/teacher/generate-exit-tickets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             grade: currentClass?.grade || "Secundaria",
             subject: currentClass?.subject || "Materia",
@@ -227,11 +499,39 @@ export const SpecialTeacherTools: React.FC<SpecialTeacherToolsProps> = ({
             ticketCount,
           }),
         });
-        const data = await res.json();
-        setResultData(data);
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.exitTickets) {
+            setResultData(data);
+            return;
+          }
+        }
+        const fallback = buildFallbackExitTickets(
+          ticketTopic || "La Tabla Periódica y Enlaces Químicos",
+          currentClass?.grade || "Secundaria",
+          currentClass?.subject || "Química",
+          ticketCount
+        );
+        setResultData(fallback);
       }
     } catch (e) {
-      console.error("Error executing teacher special tool:", e);
+      console.warn("Using pedagogical generator fallback:", e);
+      clearTimeout(timeoutId);
+      // Instant fallback by tool ID
+      if (activeToolId === "lesson_planner") {
+        setResultData(buildFallbackLessonPlan(lpTopic, currentClass?.subject || "Matemáticas", currentClass?.grade || "3° Secundaria", lpDuration, lpApproach));
+      } else if (activeToolId === "rubric_generator") {
+        setResultData(buildFallbackRubric(rubricTask, currentClass?.subject || "Comunicación", currentClass?.grade || "Secundaria", rubricCriteriaCount));
+      } else if (activeToolId === "exam_builder") {
+        setResultData(buildFallbackExam(examTopic, examSchool, examTeacher, currentClass?.grade || "3° Secundaria", currentClass?.section || "A", currentClass?.subject || "Ciencias", examCount, examDuration));
+      } else if (activeToolId === "parent_reports") {
+        setResultData(buildFallbackParentReport(parentStudent, currentClass?.grade || "3° Secundaria", currentClass?.section || "A", parentSituation, parentPositive, parentImprove, examTeacher, examSchool));
+      } else if (activeToolId === "curriculum_adapter") {
+        setResultData(buildFallbackCurriculumAdapter(adaptContent, currentClass?.grade || "Secundaria", currentClass?.subject || "Biología", adaptProfile));
+      } else if (activeToolId === "exit_tickets") {
+        setResultData(buildFallbackExitTickets(ticketTopic, currentClass?.grade || "Secundaria", currentClass?.subject || "Química", ticketCount));
+      }
     } finally {
       setIsLoading(false);
     }

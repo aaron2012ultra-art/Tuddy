@@ -222,6 +222,39 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }, 2200);
   };
 
+  const handleInstantActivatePlus = () => {
+    const updatedSubscription: SubscriptionStatus = {
+      isPro: true,
+      plan: selectedPlan === "monthly" ? "plus_monthly" : "plus_annual",
+      planName: selectedPlan === "monthly" ? "Tuddy Plus Mensual" : "Tuddy Plus Anual",
+      price: activePriceLabel,
+      startDate: new Date().toISOString(),
+      renewsAt: new Date(Date.now() + (selectedPlan === "monthly" ? 30 : 365) * 24 * 60 * 60 * 1000).toISOString(),
+      revivesLeft: 3,
+      revivesMax: 3,
+      lastReviveMonth: new Date().toISOString().slice(0, 7),
+      paymentDetails: {
+        method: "credit_card",
+        cardBrand: "visa",
+        last4: "8842",
+        cardholderName: "Estudiante Tuddy Plus",
+        billingEmail: billingEmail.trim() || "plus@tuddy.app",
+        country: billingCountry,
+        postalCode: postalCode,
+        transactionId: "TXN-TUDDY-" + Math.floor(100000 + Math.random() * 900000),
+        amountPaid: activePriceLabel,
+        paidAt: new Date().toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" }),
+      },
+    };
+    onUpdateSubscription(updatedSubscription);
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.5 },
+      colors: ["#F59E0B", "#FBBF24", "#FDE68A", "#D97706"],
+    });
+  };
+
   const handleCancelSubscription = () => {
     setShowCancelConfirm(true);
   };
@@ -455,7 +488,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   </div>
 
                   {/* CALL TO ACTION BUTTON -> CHECKOUT */}
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-2">
                     <button
                       type="button"
                       onClick={() => setCurrentView("checkout")}
@@ -465,7 +498,18 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       <span>Proceder al Pago Seguro ({selectedPlan === "monthly" ? "$3.50 USD" : "$29.99 USD"})</span>
                       <span className="text-xs opacity-75 font-normal">→</span>
                     </button>
-                    <p className="text-center text-[11px] text-slate-500 mt-2 flex items-center justify-center gap-1.5">
+
+                    <button
+                      type="button"
+                      onClick={handleInstantActivatePlus}
+                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 hover:from-amber-200 hover:to-yellow-200 text-amber-950 font-bold text-xs border border-amber-300 shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Activar Tuddy Plus Directo (Ver Aro Dorado VIP en Logo)</span>
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+                    </button>
+
+                    <p className="text-center text-[11px] text-slate-500 mt-1 flex items-center justify-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Pagos cifrados de 256 bits mediante pasarela bancaria oficial.</span>
                     </p>

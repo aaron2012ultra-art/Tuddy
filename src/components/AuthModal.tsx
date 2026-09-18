@@ -19,7 +19,8 @@ import {
   ExternalLink,
   ChevronDown,
   Search,
-  Globe
+  Globe,
+  Link2
 } from "lucide-react";
 import { UserAccount, AuthProvider, AccountBackupData } from "../types";
 import { 
@@ -30,6 +31,7 @@ import {
   verifyOtpCode, 
   createOrLoginWithOtp, 
   createOrLoginSocialAccount, 
+  linkSocialProviderToAccount,
   syncAccountData, 
   exportAccountBackupAsJson,
   OtpChallenge 
@@ -109,6 +111,16 @@ export function AuthModal({
   const [activeOAuthDialog, setActiveOAuthDialog] = useState<"google" | "github" | "apple" | "facebook" | null>(null);
   const [isOAuthConnecting, setIsOAuthConnecting] = useState(false);
   const [appleShareEmail, setAppleShareEmail] = useState(true);
+  const [socialEmailInput, setSocialEmailInput] = useState("");
+  const [socialNameInput, setSocialNameInput] = useState("");
+
+  const openOAuthDialog = (provider: "google" | "github" | "apple" | "facebook") => {
+    setActiveOAuthDialog(provider);
+    const defaultEmail = currentUser?.email || emailInput || "";
+    const defaultName = currentUser?.displayName || "";
+    setSocialEmailInput(defaultEmail);
+    setSocialNameInput(defaultName);
+  };
 
   // Profile management state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -225,7 +237,7 @@ export function AuthModal({
     onClose();
   };
 
-  // Direct Social Login Handler (Executed from inside the authentic OAuth Connect Window)
+  // Direct Social Login / Linking Handler (Executed from inside the authentic OAuth Connect Window)
   const handleExecuteSocialConnect = (
     provider: "google" | "github" | "apple" | "facebook",
     profile: { displayName: string; email?: string; avatarUrl?: string }
@@ -233,21 +245,35 @@ export function AuthModal({
     setIsOAuthConnecting(true);
 
     setTimeout(() => {
-      const { account, restoredData } = createOrLoginSocialAccount(
-        provider,
-        profile,
-        currentDataSnapshot
-      );
+      if (currentUser) {
+        // Link to existing active account
+        const updated = linkSocialProviderToAccount(
+          currentUser,
+          provider,
+          profile,
+          currentDataSnapshot
+        );
+        onUserChange(updated);
+        setSyncFeedback(`¡Tu cuenta de ${provider.toUpperCase()} ha sido entrelazada exitosamente a tu perfil! 🔗✨`);
+        setTimeout(() => setSyncFeedback(""), 4500);
+      } else {
+        // Log in / create account with social provider
+        const { account, restoredData } = createOrLoginSocialAccount(
+          provider,
+          profile,
+          currentDataSnapshot
+        );
 
-      onUserChange(account);
-      if (restoredData && onRestoreData) {
-        onRestoreData(restoredData);
+        onUserChange(account);
+        if (restoredData && onRestoreData) {
+          onRestoreData(restoredData);
+        }
+        onClose();
       }
 
       setIsOAuthConnecting(false);
       setActiveOAuthDialog(null);
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-      onClose();
     }, 650);
   };
 
@@ -320,73 +346,59 @@ export function AuthModal({
 
             {/* OAUTH CONTENT: GOOGLE */}
             {activeOAuthDialog === "google" && (
-              <div className="p-6 sm:p-7 space-y-5">
+              <div className="p-6 sm:p-7 space-y-4">
                 <div className="flex items-center gap-2.5">
                   <GoogleLogo />
                   <div>
                     <h3 className="text-base font-bold text-slate-900 leading-tight">
-                      Acceder con Google
+                      {currentUser ? "Entrelazar cuenta de Google" : "Acceder con Google"}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      para continuar a <strong className="text-slate-700">Tuddy App</strong>
+                      {currentUser 
+                        ? `Vincular a tu perfil: ${currentUser.displayName || currentUser.email || "Usuario"}` 
+                        : "para continuar a Tuddy App"}
                     </p>
                   </div>
                 </div>
 
-                <div className="border border-slate-200 rounded-2xl p-1 divide-y divide-slate-100">
-                  {/* Active Google Account Option */}
-                  <div
-                    onClick={() => {
-                      if (!isOAuthConnecting) {
-                        handleExecuteSocialConnect("google", {
-                          displayName: "Aaron",
-                          email: "aaron2012.ultra@gmail.com",
-                          avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=Aaron",
-                        });
-                      }
-                    }}
-                    className="p-3.5 rounded-xl hover:bg-sky-50/70 transition-colors cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                        A
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800 group-hover:text-sky-900">
-                          Aaron
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          aaron2012.ultra@gmail.com
-                        </p>
-                      </div>
+                <div className="p-4 rounded-2xl bg-sky-50/50 border border-sky-100 space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tu Correo de Google / Gmail:
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={socialEmailInput}
+                        onChange={(e) => setSocialEmailInput(e.target.value)}
+                        placeholder="tu.cuenta@gmail.com"
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-sky-500 font-medium text-slate-800"
+                      />
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      Sesión activa
-                    </span>
                   </div>
 
-                  {/* Secondary generic Google account */}
-                  <div
-                    onClick={() => {
-                      if (!isOAuthConnecting) {
-                        handleExecuteSocialConnect("google", {
-                          displayName: "Estudiante Google",
-                          email: "estudiante@gmail.com",
-                          avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=GoogleStudent",
-                        });
-                      }
-                    }}
-                    className="p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3 text-xs text-slate-600 font-medium"
-                  >
-                    <div className="w-8 h-8 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
-                      <User className="w-4 h-4" />
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tu Nombre en Google:
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={socialNameInput}
+                        onChange={(e) => setSocialNameInput(e.target.value)}
+                        placeholder="Tu Nombre Completo"
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-sky-500 font-medium text-slate-800"
+                      />
                     </div>
-                    <span>Usar otra cuenta de Google</span>
                   </div>
                 </div>
 
                 <div className="text-[11px] text-slate-500 leading-relaxed">
-                  Para continuar, Google compartirá tu nombre, correo electrónico y foto de perfil con Tuddy para sincronizar tu progreso de estudio de forma privada.
+                  {currentUser 
+                    ? "Al entrelazar tu cuenta de Google, podrás iniciar sesión con este correo y todas tus notas y asignaturas estarán sincronizadas."
+                    : "Google compartirá tu nombre y correo para sincronizar de forma segura tu progreso en Tuddy."}
                 </div>
 
                 <div className="pt-2 flex items-center justify-between gap-3">
@@ -402,10 +414,12 @@ export function AuthModal({
                   <button
                     type="button"
                     onClick={() => {
+                      const finalEmail = socialEmailInput.trim() || "mi.cuenta@gmail.com";
+                      const finalName = socialNameInput.trim() || finalEmail.split("@")[0] || "Usuario Google";
                       handleExecuteSocialConnect("google", {
-                        displayName: "Aaron",
-                        email: "aaron2012.ultra@gmail.com",
-                        avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=Aaron",
+                        displayName: finalName,
+                        email: finalEmail,
+                        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`,
                       });
                     }}
                     disabled={isOAuthConnecting}
@@ -414,10 +428,10 @@ export function AuthModal({
                     {isOAuthConnecting ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Conectando con Google...</span>
+                        <span>Conectando...</span>
                       </>
                     ) : (
-                      <span>Continuar como Aaron</span>
+                      <span>{currentUser ? "Entrelazar mi cuenta de Google" : `Continuar como ${socialNameInput.trim() || "Google"}`}</span>
                     )}
                   </button>
                 </div>
@@ -426,48 +440,53 @@ export function AuthModal({
 
             {/* OAUTH CONTENT: GITHUB */}
             {activeOAuthDialog === "github" && (
-              <div className="p-6 sm:p-7 space-y-5 bg-[#0d1117] text-white">
+              <div className="p-6 sm:p-7 space-y-4 bg-[#0d1117] text-white">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-white/10 text-white">
                     <GitHubLogo />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white leading-tight">
-                      Authorize Tuddy Workspace
+                      {currentUser ? "Entrelazar con tu GitHub" : "Autorizar con GitHub"}
                     </h3>
                     <p className="text-xs text-slate-400">
-                      by Google AI Studio Applet
+                      {currentUser ? `Vincular a ${currentUser.displayName || "tu cuenta"}` : "Acceso seguro a Tuddy Workspace"}
                     </p>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-3">
-                  <div className="flex items-center gap-3 pb-3 border-b border-[#30363d]">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-sky-500 flex items-center justify-center font-bold text-white">
-                      A
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">Aaron (aaron2012)</p>
-                      <p className="text-xs text-slate-400">aaron2012.ultra@gmail.com</p>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Tu Usuario o Correo de GitHub:
+                    </label>
+                    <input
+                      type="text"
+                      value={socialEmailInput}
+                      onChange={(e) => setSocialEmailInput(e.target.value)}
+                      placeholder="usuario o correo@ejemplo.com"
+                      className="w-full px-3 py-2 text-xs bg-[#0d1117] border border-[#30363d] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono text-slate-200"
+                    />
                   </div>
 
-                  <div className="space-y-2 text-xs text-slate-300">
-                    <p className="font-semibold text-slate-400 uppercase text-[10px] tracking-wider">
-                      Permisos solicitados:
-                    </p>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span className="text-slate-200">Ver información pública de tu perfil</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span className="text-slate-200">Acceder a tu dirección de correo</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span className="text-slate-200">Sincronización de progreso y fichas</span>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Tu Nombre de Perfil GitHub:
+                    </label>
+                    <input
+                      type="text"
+                      value={socialNameInput}
+                      onChange={(e) => setSocialNameInput(e.target.value)}
+                      placeholder="Tu nombre público de GitHub"
+                      className="w-full px-3 py-2 text-xs bg-[#0d1117] border border-[#30363d] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-medium text-slate-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-[11px] text-slate-400">
+                  <div className="flex items-center gap-1.5 text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Vinculación de identidad y almacenamiento en la nube</span>
                   </div>
                 </div>
 
@@ -484,10 +503,12 @@ export function AuthModal({
                   <button
                     type="button"
                     onClick={() => {
+                      const finalEmail = socialEmailInput.trim() || "dev@github.com";
+                      const finalName = socialNameInput.trim() || finalEmail.split("@")[0] || "GitHub User";
                       handleExecuteSocialConnect("github", {
-                        displayName: "Aaron (GitHub)",
-                        email: "aaron2012.ultra@gmail.com",
-                        avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=AaronGitHub",
+                        displayName: `${finalName} (GitHub)`,
+                        email: finalEmail.includes("@") ? finalEmail : `${finalEmail}@github.user`,
+                        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`,
                       });
                     }}
                     disabled={isOAuthConnecting}
@@ -496,10 +517,10 @@ export function AuthModal({
                     {isOAuthConnecting ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Autorizando con GitHub...</span>
+                        <span>Autorizando...</span>
                       </>
                     ) : (
-                      <span>Authorize tuddy-workspace</span>
+                      <span>{currentUser ? "Entrelazar mi cuenta de GitHub" : `Autorizar como ${socialNameInput.trim() || "GitHub"}`}</span>
                     )}
                   </button>
                 </div>
@@ -508,31 +529,52 @@ export function AuthModal({
 
             {/* OAUTH CONTENT: APPLE */}
             {activeOAuthDialog === "apple" && (
-              <div className="p-6 sm:p-7 space-y-5">
+              <div className="p-6 sm:p-7 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-black text-white">
                     <AppleLogo />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900 leading-tight">
-                      Sign In with Apple
+                      {currentUser ? "Entrelazar con Apple ID" : "Sign in with Apple"}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Iniciar sesión en Tuddy con Apple ID
+                      {currentUser ? `Asociar a tu perfil ${currentUser.displayName || ""}` : "Acceso rápido y privado con Apple"}
                     </p>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800">Apple ID:</span>
-                    <span className="text-slate-600 font-mono">aaron2012.ultra@gmail.com</span>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tu Apple ID / Correo:
+                    </label>
+                    <input
+                      type="email"
+                      value={socialEmailInput}
+                      onChange={(e) => setSocialEmailInput(e.target.value)}
+                      placeholder="tu.appleid@icloud.com"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-black font-medium text-slate-800"
+                    />
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200 space-y-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tu Nombre:
+                    </label>
+                    <input
+                      type="text"
+                      value={socialNameInput}
+                      onChange={(e) => setSocialNameInput(e.target.value)}
+                      placeholder="Tu Nombre para Tuddy"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-black font-medium text-slate-800"
+                    />
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 space-y-1.5">
                     <label 
                       onClick={() => setAppleShareEmail(true)}
-                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors"
+                      className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors"
                     >
                       <input 
                         type="radio" 
@@ -541,15 +583,12 @@ export function AuthModal({
                         onChange={() => setAppleShareEmail(true)}
                         className="text-black"
                       />
-                      <div className="text-xs">
-                        <span className="font-bold text-slate-800 block">Compartir mi correo</span>
-                        <span className="text-slate-500 text-[11px]">aaron2012.ultra@gmail.com</span>
-                      </div>
+                      <span className="text-xs text-slate-700 font-medium">Compartir mi correo</span>
                     </label>
 
                     <label 
                       onClick={() => setAppleShareEmail(false)}
-                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors"
+                      className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors"
                     >
                       <input 
                         type="radio" 
@@ -558,10 +597,7 @@ export function AuthModal({
                         onChange={() => setAppleShareEmail(false)}
                         className="text-black"
                       />
-                      <div className="text-xs">
-                        <span className="font-bold text-slate-800 block">Ocultar mi correo</span>
-                        <span className="text-slate-500 text-[11px]">Reenviar a través de Apple Private Relay</span>
-                      </div>
+                      <span className="text-xs text-slate-700 font-medium">Ocultar mi correo (Apple Private Relay)</span>
                     </label>
                   </div>
                 </div>
@@ -579,10 +615,13 @@ export function AuthModal({
                   <button
                     type="button"
                     onClick={() => {
+                      const rawEmail = socialEmailInput.trim() || "estudiante@icloud.com";
+                      const finalEmail = appleShareEmail ? rawEmail : `${rawEmail.split("@")[0]}@privaterelay.appleid.com`;
+                      const finalName = socialNameInput.trim() || "Usuario Apple";
                       handleExecuteSocialConnect("apple", {
-                        displayName: "Aaron (Apple)",
-                        email: appleShareEmail ? "aaron2012.ultra@gmail.com" : "aaron@privaterelay.appleid.com",
-                        avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=AaronApple",
+                        displayName: `${finalName} (Apple)`,
+                        email: finalEmail,
+                        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`,
                       });
                     }}
                     disabled={isOAuthConnecting}
@@ -591,10 +630,10 @@ export function AuthModal({
                     {isOAuthConnecting ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Conectando con Apple...</span>
+                        <span>Conectando...</span>
                       </>
                     ) : (
-                      <span>Continuar con Apple ID</span>
+                      <span>{currentUser ? "Entrelazar mi Apple ID" : `Continuar como ${socialNameInput.trim() || "Apple"}`}</span>
                     )}
                   </button>
                 </div>
@@ -603,34 +642,46 @@ export function AuthModal({
 
             {/* OAUTH CONTENT: FACEBOOK */}
             {activeOAuthDialog === "facebook" && (
-              <div className="p-6 sm:p-7 space-y-5">
+              <div className="p-6 sm:p-7 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 rounded-xl bg-[#1877F2]/10">
                     <FacebookLogo />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900 leading-tight">
-                      Iniciar sesión con Facebook
+                      {currentUser ? "Entrelazar con Facebook" : "Iniciar sesión con Facebook"}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Conectar perfil de Facebook con Tuddy
+                      {currentUser ? `Vincular a tu cuenta ${currentUser.displayName || ""}` : "Conectar perfil de Facebook con Tuddy"}
                     </p>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200/70 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-[#1877F2] text-white font-bold flex items-center justify-center text-base shadow-xs">
-                      A
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Aaron</p>
-                      <p className="text-xs text-slate-500">Iniciando sesión como Aaron</p>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tu Correo o Número de Facebook:
+                    </label>
+                    <input
+                      type="text"
+                      value={socialEmailInput}
+                      onChange={(e) => setSocialEmailInput(e.target.value)}
+                      placeholder="tu.cuenta@facebook.com"
+                      className="w-full px-3 py-2 text-xs bg-white border border-blue-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
+                    />
                   </div>
 
-                  <div className="text-xs text-slate-600 pt-2 border-t border-blue-100">
-                    Tuddy recibirá tu nombre, foto de perfil y correo electrónico para asociar tu progreso de estudio.
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tu Nombre de Perfil de Facebook:
+                    </label>
+                    <input
+                      type="text"
+                      value={socialNameInput}
+                      onChange={(e) => setSocialNameInput(e.target.value)}
+                      placeholder="Tu Nombre en Facebook"
+                      className="w-full px-3 py-2 text-xs bg-white border border-blue-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
+                    />
                   </div>
                 </div>
 
@@ -647,10 +698,12 @@ export function AuthModal({
                   <button
                     type="button"
                     onClick={() => {
+                      const finalEmail = socialEmailInput.trim() || "facebook.user@fb.com";
+                      const finalName = socialNameInput.trim() || "Usuario Facebook";
                       handleExecuteSocialConnect("facebook", {
-                        displayName: "Aaron",
-                        email: "aaron2012.ultra@gmail.com",
-                        avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=AaronFB",
+                        displayName: finalName,
+                        email: finalEmail.includes("@") ? finalEmail : `${finalEmail}@facebook.com`,
+                        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`,
                       });
                     }}
                     disabled={isOAuthConnecting}
@@ -659,10 +712,10 @@ export function AuthModal({
                     {isOAuthConnecting ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Conectando con Facebook...</span>
+                        <span>Conectando...</span>
                       </>
                     ) : (
-                      <span>Continuar como Aaron</span>
+                      <span>{currentUser ? "Entrelazar mi cuenta de Facebook" : `Continuar como ${socialNameInput.trim() || "Facebook"}`}</span>
                     )}
                   </button>
                 </div>
@@ -821,6 +874,128 @@ export function AuthModal({
                 </div>
               </div>
 
+              {/* LINKED ACCOUNTS PANEL (Cuentas Entrelazadas) */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-sky-600" />
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                      Cuentas Entrelazadas
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-500">Multiacceso Tuddy</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Entrelaza tu cuenta personal para iniciar sesión directamente con tu red social favorita sin crear cuentas duplicadas.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Google */}
+                  <div className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <GoogleLogo />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">Google</span>
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {currentUser.linkedAccounts?.google ? currentUser.linkedAccounts.google.email || "Entrelazado" : "No vinculado"}
+                        </span>
+                      </div>
+                    </div>
+                    {currentUser.linkedAccounts?.google ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                        ✓ Activo
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openOAuthDialog("google")}
+                        className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0"
+                      >
+                        Entrelazar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* GitHub */}
+                  <div className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-slate-900"><GitHubLogo /></div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">GitHub</span>
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {currentUser.linkedAccounts?.github ? currentUser.linkedAccounts.github.email || "Entrelazado" : "No vinculado"}
+                        </span>
+                      </div>
+                    </div>
+                    {currentUser.linkedAccounts?.github ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                        ✓ Activo
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openOAuthDialog("github")}
+                        className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0"
+                      >
+                        Entrelazar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Apple */}
+                  <div className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-slate-900"><AppleLogo /></div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">Apple</span>
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {currentUser.linkedAccounts?.apple ? "Entrelazado" : "No vinculado"}
+                        </span>
+                      </div>
+                    </div>
+                    {currentUser.linkedAccounts?.apple ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                        ✓ Activo
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openOAuthDialog("apple")}
+                        className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0"
+                      >
+                        Entrelazar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Facebook */}
+                  <div className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FacebookLogo />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">Facebook</span>
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {currentUser.linkedAccounts?.facebook ? currentUser.linkedAccounts.facebook.email || "Entrelazado" : "No vinculado"}
+                        </span>
+                      </div>
+                    </div>
+                    {currentUser.linkedAccounts?.facebook ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                        ✓ Activo
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openOAuthDialog("facebook")}
+                        className="text-[10px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0"
+                      >
+                        Entrelazar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Logout button */}
               <div className="pt-2 flex justify-between items-center">
                 <span className="text-xs text-slate-500">
@@ -854,7 +1029,7 @@ export function AuthModal({
                   {/* Google Direct Connect */}
                   <button
                     type="button"
-                    onClick={() => setActiveOAuthDialog("google")}
+                    onClick={() => openOAuthDialog("google")}
                     className="flex items-center gap-2.5 p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-xs transition-all text-xs font-bold text-slate-800 cursor-pointer text-left group"
                   >
                     <GoogleLogo />
@@ -867,7 +1042,7 @@ export function AuthModal({
                   {/* GitHub Direct Connect */}
                   <button
                     type="button"
-                    onClick={() => setActiveOAuthDialog("github")}
+                    onClick={() => openOAuthDialog("github")}
                     className="flex items-center gap-2.5 p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-xs transition-all text-xs font-bold text-slate-800 cursor-pointer text-left group"
                   >
                     <div className="text-slate-900">
@@ -882,7 +1057,7 @@ export function AuthModal({
                   {/* Apple Direct Connect */}
                   <button
                     type="button"
-                    onClick={() => setActiveOAuthDialog("apple")}
+                    onClick={() => openOAuthDialog("apple")}
                     className="flex items-center gap-2.5 p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-xs transition-all text-xs font-bold text-slate-800 cursor-pointer text-left group"
                   >
                     <div className="text-slate-900">
@@ -897,7 +1072,7 @@ export function AuthModal({
                   {/* Facebook Direct Connect */}
                   <button
                     type="button"
-                    onClick={() => setActiveOAuthDialog("facebook")}
+                    onClick={() => openOAuthDialog("facebook")}
                     className="flex items-center gap-2.5 p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-xs transition-all text-xs font-bold text-slate-800 cursor-pointer text-left group"
                   >
                     <FacebookLogo />

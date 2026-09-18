@@ -42,7 +42,9 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [viewMode, setViewMode] = useState<AuthViewMode>("login");
+  const [viewMode, setViewMode] = useState<AuthViewMode>(() =>
+    getStoredTeacherAccounts().length === 0 ? "register" : "login"
+  );
 
   // Login form state (Correo, Contraseña, Código Único)
   const [loginEmail, setLoginEmail] = useState("");
@@ -377,15 +379,18 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
-                {/* Helpers: Demo credentials & recovery */}
+                {/* Helpers: Register link & recovery */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                   <button
                     type="button"
-                    onClick={handleUseDemoCredentials}
+                    onClick={() => {
+                      setViewMode("register");
+                      setError(null);
+                    }}
                     className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer flex items-center gap-1"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Cargar demo inicial</span>
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>¿Nuevo profesor? Crear cuenta</span>
                   </button>
 
                   <button

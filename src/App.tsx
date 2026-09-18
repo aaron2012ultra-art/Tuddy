@@ -18,7 +18,8 @@ import {
   Crown,
   User,
   Gamepad2,
-  GraduationCap
+  GraduationCap,
+  School
 } from "lucide-react";
 import { 
   Flashcard, 
@@ -74,6 +75,7 @@ import {
 } from "./utils/storage";
 import { TeacherModule } from "./components/teacher/TeacherModule";
 import { TeacherAuthModal } from "./components/teacher/TeacherAuthModal";
+import { StudentPortal } from "./components/student/StudentPortal";
 import { WorkspaceTabBar } from "./components/WorkspaceTabBar";
 import { AnthropomorphicBunny, PetAvatar } from "./components/AnthropomorphicBunny";
 import { TuddyMascot } from "./components/TuddyMascot";
@@ -126,6 +128,9 @@ export default function App() {
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>(() => getStoredTeacherAssignments());
   const [teacherExams, setTeacherExams] = useState<TeacherExamRecord[]>(() => getStoredTeacherExams());
 
+  // Student Portal Mode (Linked to Teacher Classroom)
+  const [isStudentPortalActive, setIsStudentPortalActive] = useState<boolean>(false);
+
   const handleOpenTeacherSuite = () => {
     if (isTeacherLoggedIn) {
       setIsTeacherModeActive(true);
@@ -154,6 +159,14 @@ export default function App() {
   const handleUpdateSubscription = (updated: SubscriptionStatus) => {
     setSubscription(updated);
     saveSubscription(updated);
+    if (currentUser) {
+      const updatedUser: UserAccount = {
+        ...currentUser,
+        plan: updated.plan,
+        isPro: updated.isPro,
+      };
+      setCurrentUser(updatedUser);
+    }
     confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
   };
 
@@ -530,11 +543,21 @@ export default function App() {
     { id: "languages", label: t.navLanguages || "Idiomas", icon: Languages },
     { id: "games", label: "Juegos IA", icon: Gamepad2, count: 20 },
     { id: "analytics", label: t.navAnalytics || "Progreso a Largo Plazo", icon: TrendingUp },
+    { id: "student_portal", label: "Portal Alumno", icon: School, isStudent: true },
     { id: "teacher", label: "Modo Profesores", icon: GraduationCap, isTeacher: true },
   ];
 
   // User Level
   const userLevel = Math.max(1, Math.floor((stats.cardsMastered * 5 + stats.quizzesCompleted * 10 + stats.carrotCoins * 2) / 20) + 1);
+
+  // Check Tuddy Plus VIP status (from active subscription or user account)
+  const isTuddyPlus = Boolean(
+    subscription.isPro || 
+    currentUser?.plan === "plus_monthly" || 
+    currentUser?.plan === "plus_annual" || 
+    currentUser?.plan === "pro_monthly" || 
+    currentUser?.isPro
+  );
 
   const handleSetLanguage = (newLang: LanguageCode) => {
     const updated = { ...settings, language: newLang };
@@ -569,6 +592,14 @@ export default function App() {
           }}
           onLogout={handleTeacherLogout}
         />
+      ) : isStudentPortalActive ? (
+        <StudentPortal
+          onBackToApp={() => setIsStudentPortalActive(false)}
+          onOpenAITutor={(subject, topic) => {
+            setIsStudentPortalActive(false);
+            handleOpenTab("tutor", `Tutor: ${subject}`, { subject, topic });
+          }}
+        />
       ) : (
         <div className="min-h-screen bg-[#FDF9F3] text-[#4A4A4A] flex flex-col font-sans">
       {/* TOP APPLICATION BAR - BENTO GRID HEADER */}
@@ -579,19 +610,63 @@ export default function App() {
             <div className="flex items-center gap-3">
               <div 
                 onClick={() => setIsPetCustomizerOpen(true)}
-                className="w-10 h-10 bg-[#FFB7B2] rounded-2xl flex items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform overflow-hidden"
-                title={`Personalizar a ${pet.name}`}
+                className={`relative flex items-center justify-center cursor-pointer hover:scale-105 transition-all shrink-0 ${
+                  isTuddyPlus
+                    ? "w-12 h-12 rounded-full p-[3px] bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-600 ring-4 ring-amber-400/90 ring-offset-2 ring-offset-[#FDF9F3] shadow-[0_0_22px_rgba(245,158,11,0.85)]"
+                    : "w-11 h-11 rounded-2xl p-0.5 bg-[#FFB7B2] shadow-xs"
+                }`}
+                title={`Personalizar a ${pet.name}${isTuddyPlus ? " (Tuddy Plus Activo - Aro Dorado VIP)" : ""}`}
               >
-                <PetAvatar pet={pet} size="sm" showBg={false} />
+                {/* Radiant animated pulse halo for Tuddy Plus */}
+                {isTuddyPlus && (
+                  <div className="absolute -inset-1 rounded-full border-2 border-amber-300/80 animate-pulse pointer-events-none" />
+                )}
+
+                {/* Circular Inner Avatar Frame */}
+                <div className={`w-full h-full flex items-center justify-center overflow-hidden ${
+                  isTuddyPlus 
+                    ? "rounded-full bg-gradient-to-b from-[#FFF5EB] to-[#FFD8D4] border border-amber-300/80" 
+                    : "rounded-xl bg-[#FFB7B2]"
+                }`}>
+                  <PetAvatar pet={pet} size="sm" showBg={false} hasGoldRing={false} />
+                </div>
+
+                {/* Imperial Gold Crown badge */}
+                {isTuddyPlus && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 p-1 rounded-full ring-2 ring-white shadow-md flex items-center justify-center z-10 animate-bounce">
+                    <Crown className="w-3 h-3 fill-amber-950 text-amber-950" />
+                  </span>
+                )}
               </div>
 
               <div className="flex items-baseline gap-2">
-                <h1 className="text-3xl font-black tracking-tight text-[#FFB7B2] font-heading leading-none">
+                <h1 className={`text-3xl font-black tracking-tight font-heading leading-none ${
+                  isTuddyPlus
+                    ? "bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-500 bg-clip-text text-transparent drop-shadow-xs"
+                    : "text-[#FFB7B2]"
+                }`}>
                   Tuddy
                 </h1>
-                <span className="text-xs font-bold text-[#7A7A7A] hidden sm:inline">
-                  • Bento Studio
-                </span>
+                {isTuddyPlus ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsSubscriptionModalOpen(true)}
+                    className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-amber-300 shadow-xs flex items-center gap-1 uppercase tracking-wider cursor-pointer hover:brightness-105 transition-all"
+                    title="Membresía Tuddy Plus VIP Activa"
+                  >
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Plus
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsSubscriptionModalOpen(true)}
+                    className="text-xs font-bold text-[#7A7A7A] hover:text-amber-600 transition-colors hidden sm:inline cursor-pointer"
+                    title="Obtener Tuddy Plus"
+                  >
+                    • Bento Studio
+                  </button>
+                )}
               </div>
             </div>
 
@@ -654,6 +729,21 @@ export default function App() {
                 <span className="hidden sm:inline">Profesores</span>
                 <span className="text-[10px] bg-indigo-200/80 text-indigo-900 px-1.5 py-0.2 rounded-full font-bold">
                   {isTeacherLoggedIn ? "Activo" : "Código"}
+                </span>
+              </button>
+
+              {/* Portal del Estudiante / Salón Escolar */}
+              <button
+                type="button"
+                id="top-nav-tuddy-student-portal-btn"
+                onClick={() => setIsStudentPortalActive(true)}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 text-emerald-950 font-black px-2.5 sm:px-3 py-1.5 rounded-full shadow-2xs text-xs transition-all cursor-pointer"
+                title="Portal del Estudiante - Revisa tus tareas, notas de exámenes, avisos y asistencia escolar"
+              >
+                <School className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="hidden sm:inline">Portal Alumno</span>
+                <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.2 rounded-full font-bold">
+                  Salón
                 </span>
               </button>
 
@@ -757,6 +847,7 @@ export default function App() {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               const isTeacher = item.id === "teacher";
+              const isStudent = Boolean(item.isStudent);
               return (
                 <button
                   key={item.id}
@@ -764,6 +855,8 @@ export default function App() {
                   onClick={() => {
                     if (isTeacher) {
                       handleOpenTeacherSuite();
+                    } else if (isStudent) {
+                      setIsStudentPortalActive(true);
                     } else {
                       handleOpenTab(item.id as WorkspaceTab["type"]);
                     }
@@ -771,16 +864,22 @@ export default function App() {
                   className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-xs whitespace-nowrap transition-all cursor-pointer ${
                     isTeacher
                       ? "bg-indigo-50 text-indigo-900 hover:bg-indigo-100 border border-indigo-200 font-bold"
+                      : isStudent
+                      ? "bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300 font-bold"
                       : isActive
                       ? "bg-[#FFB7B2] text-white font-bold shadow-xs border border-[#FFB7B2]"
                       : "bg-white text-[#4A4A4A] hover:bg-[#FAF6F0] border border-[#E8E2D9] font-medium"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isTeacher ? "text-indigo-600" : isActive ? "text-white" : "text-[#7A7A7A]"}`} />
+                  <Icon className={`h-4 w-4 ${isTeacher ? "text-indigo-600" : isStudent ? "text-emerald-600" : isActive ? "text-white" : "text-[#7A7A7A]"}`} />
                   <span>{item.label}</span>
                   {isTeacher ? (
                     <span className="text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase bg-indigo-200/80 text-indigo-900">
                       Docente
+                    </span>
+                  ) : isStudent ? (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase bg-emerald-200/80 text-emerald-900">
+                      Salón
                     </span>
                   ) : item.count !== undefined ? (
                     <span
@@ -836,6 +935,7 @@ export default function App() {
                 onOpenMascotModal={() => setIsMascotModalOpen(true)}
                 onOpenPetCustomizer={() => setIsPetCustomizerOpen(true)}
                 onOpenSubjectManager={() => setIsSubjectManagerOpen(true)}
+                onOpenStudentPortal={() => setIsStudentPortalActive(true)}
               />
             )}
 

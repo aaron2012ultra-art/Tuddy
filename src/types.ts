@@ -351,6 +351,16 @@ export interface UserAccount {
   createdAt: string;
   lastSyncedAt: string;
   isVerified: boolean;
+  plan?: SubscriptionPlan;
+  isPro?: boolean;
+  linkedProviders?: Array<{
+    provider: "google" | "github" | "apple" | "facebook";
+    displayName: string;
+    email?: string;
+    avatarUrl?: string;
+    linkedAt: string;
+  }>;
+  linkedAccounts?: Record<string, { email?: string; displayName?: string; linkedAt?: string }>;
 }
 
 export interface AccountBackupData {
@@ -518,14 +528,111 @@ export interface TeacherStudent {
   id: string;
   orderNumber: number;
   fullName: string;
+  studentCode?: string; // Código de acceso del alumno (ej: EST-101)
+  pin?: string; // Clave o PIN opcional del alumno
   guardianContact?: string;
   notes?: string;
   specialNeeds?: string; // DUA / Adaptación
   attendanceToday?: AttendanceStatus;
 }
 
+export interface ClassroomAnnouncement {
+  id: string;
+  classroomId: string;
+  title: string;
+  content: string;
+  date: string;
+  priority?: "normal" | "important" | "urgent";
+  authorName: string;
+  createdAt?: string;
+}
+
+export interface StudentTeacherMessage {
+  id: string;
+  classroomId: string;
+  studentId: string;
+  sender: "teacher" | "student";
+  senderName: string;
+  content: string;
+  timestamp: string;
+  read?: boolean;
+}
+
+export interface EducationalInstitutionTeacher {
+  id: string;
+  fullName: string;
+  subject: string;
+  email?: string;
+  avatarIcon?: string;
+  photoUrl?: string;
+  phone?: string;
+}
+
+export interface EducationalInstitutionStudent {
+  studentId: string;
+  studentCode: string; // ej: EST-101
+  fullName: string;
+  grade: string; // ej: 3° Secundaria
+  section: string; // ej: A
+  guardianContact?: string;
+  enrolledSubjects?: string[];
+}
+
+export interface InstitutionAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  role: "Dirección" | "Coordinación Académica" | "Tutoría" | "Docente";
+  date: string;
+  important?: boolean;
+}
+
+export interface EducationalInstitution {
+  id: string;
+  institutionCode: string; // ej: COL-SAN-8921
+  name: string;
+  shortName?: string;
+  country: string;
+  city: string;
+  educationLevels: string[];
+  directorName: string;
+  contactEmail: string;
+  phone?: string;
+  slogan?: string;
+  registeredAt: string;
+  // Master Control & Verification Fields
+  masterAdminKey?: string; // Clave Maestra confidencial para administradores y directores
+  officialRegistryType?: "codigo_modular" | "cct" | "ruc" | "registro_ministerial" | "modular" | "ministerial";
+  officialRegistryCode?: string; // e.g. Código Modular MINEDU o CCT SEP
+  officialResolutionNumber?: string; // Número de Resolución Directoral / Folio oficial
+  isVerified?: boolean; // Validación institucional formal
+  teachers: EducationalInstitutionTeacher[];
+  students: EducationalInstitutionStudent[];
+  subjects: string[];
+  announcements: InstitutionAnnouncement[];
+}
+
+export interface StudentActiveSession {
+  // Institución a la que pertenece
+  institutionId?: string;
+  institutionCode?: string;
+  institutionName?: string;
+  // Identidad del estudiante
+  studentId: string;
+  studentName: string;
+  studentCode: string;
+  grade: string;
+  section: string;
+  className: string;
+  subject?: string;
+  classroomId?: string;
+  loggedAt: string;
+}
+
 export interface TeacherClassroom {
   id: string;
+  classCode?: string; // Código único del salón para estudiantes (ej: MAT-3B-849)
   grade: string; // ej: "1° Primaria", "3° Secundaria", "5° Grado"
   section: string; // ej: "A", "B", "C"
   subject: string; // ej: "Matemáticas", "Ciencias"
@@ -534,6 +641,10 @@ export interface TeacherClassroom {
   students: TeacherStudent[];
   // Registro de asistencia por fecha (formato "YYYY-MM-DD" -> studentId -> StudentAttendanceEntry)
   attendanceByDate?: Record<string, Record<string, StudentAttendanceEntry>>;
+  // Comunicados y avisos para los estudiantes del salón
+  announcements?: ClassroomAnnouncement[];
+  // Mensajes entre alumnos del salón y el docente
+  messages?: StudentTeacherMessage[];
   createdAt: string;
   updatedAt: string;
 }
@@ -546,6 +657,7 @@ export interface StudentAssignmentRecord {
   score?: number; // ej: 0 - 20 o 0 - 100
   feedback?: string;
   submittedAt?: string;
+  submissionContent?: string; // Texto o respuesta enviada por el estudiante
   checkedByTeacher?: boolean;
 }
 
@@ -555,6 +667,7 @@ export type TeacherTab =
   | "classrooms" 
   | "assignments" 
   | "exams" 
+  | "announcements"
   | "better_tasks" 
   | "special_tools" 
   | "settings";

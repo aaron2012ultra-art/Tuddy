@@ -19,7 +19,9 @@ import {
   Copy,
   Check,
   Mail,
-  RefreshCw
+  RefreshCw,
+  Megaphone,
+  Building
 } from "lucide-react";
 import { 
   TeacherClassroom, 
@@ -40,8 +42,10 @@ import {
 import { ClassroomManager } from "./ClassroomManager";
 import { AssignmentsManager } from "./AssignmentsManager";
 import { ExamsManager } from "./ExamsManager";
+import { AnnouncementsManager } from "./AnnouncementsManager";
 import { BetterTaskCreator } from "./BetterTaskCreator";
 import { SpecialTeacherTools } from "./SpecialTeacherTools";
+import { InstitutionRegistrationModal } from "../institution/InstitutionRegistrationModal";
 
 interface TeacherModuleProps {
   classrooms: TeacherClassroom[];
@@ -66,21 +70,36 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
   const [selectedClassroomId, setSelectedClassroomId] = useState<string>(
     classrooms[0]?.id || ""
   );
+  const [isInstitutionModalOpen, setIsInstitutionModalOpen] = useState(false);
 
   // Teacher configuration state
-  const [teacherConfig, setTeacherConfig] = useState<TeacherConfig>(() =>
-    getStoredTeacherConfig()
-  );
+  const [teacherConfig, setTeacherConfig] = useState<TeacherConfig>(() => {
+    const cfg = getStoredTeacherConfig();
+    const activeAcc = getActiveTeacherAccount();
+    if (activeAcc && (!cfg.teacherName || !cfg.email)) {
+      return {
+        ...cfg,
+        teacherName: cfg.teacherName || activeAcc.teacherName,
+        schoolName: cfg.schoolName || activeAcc.schoolName,
+        email: cfg.email || activeAcc.email,
+        uniqueCode: cfg.uniqueCode || activeAcc.uniqueCode,
+        accessCode: cfg.accessCode || activeAcc.uniqueCode,
+      };
+    }
+    return cfg;
+  });
   const [configSavedToast, setConfigSavedToast] = useState(false);
   const [copiedCodeToast, setCopiedCodeToast] = useState(false);
   const [copiedHeader, setCopiedHeader] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState("");
 
   const handleCopyHeaderCode = () => {
-    const code = teacherConfig.uniqueCode || teacherConfig.accessCode || "PROF-2025-TD";
-    navigator.clipboard.writeText(code);
-    setCopiedHeader(true);
-    setTimeout(() => setCopiedHeader(false), 2000);
+    const code = teacherConfig.uniqueCode || teacherConfig.accessCode || "DOCENTE";
+    if (code) {
+      navigator.clipboard.writeText(code);
+      setCopiedHeader(true);
+      setTimeout(() => setCopiedHeader(false), 2000);
+    }
   };
 
   const handleRegenerateCode = () => {
@@ -143,7 +162,8 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  {teacherConfig.teacherName} • {teacherConfig.schoolName}
+                  {teacherConfig.teacherName || "Espacio Docente"}
+                  {teacherConfig.schoolName ? ` • ${teacherConfig.schoolName}` : ""}
                 </p>
               </div>
             </div>
@@ -155,7 +175,7 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
                 <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
                 <span className="text-[11px] text-indigo-900 font-semibold">Tu Código:</span>
                 <span className="font-mono font-black text-indigo-950 bg-white px-2 py-0.5 rounded-lg border border-indigo-100 select-all">
-                  {teacherConfig.uniqueCode || teacherConfig.accessCode || "PROF-2025-TD"}
+                  {teacherConfig.uniqueCode || teacherConfig.accessCode || "DOCENTE"}
                 </span>
                 <button
                   type="button"
@@ -170,6 +190,16 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
                   )}
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsInstitutionModalOpen(true)}
+                className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Inscribir o gestionar colegios y generar código"
+              >
+                <Building className="w-4 h-4 text-indigo-600" />
+                <span className="hidden sm:inline">Inscribir Colegio</span>
+              </button>
 
               <button
                 type="button"
@@ -203,6 +233,7 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
               { id: "classrooms", label: "Aulas & Estudiantes", icon: Users },
               { id: "assignments", label: "Registro de Tareas", icon: ClipboardCheck },
               { id: "exams", label: "Registro de Exámenes", icon: FileSpreadsheet },
+              { id: "announcements", label: "Avisos & Mensajes a Alumnos", icon: Megaphone },
               { id: "better_tasks", label: "Creador de Mejores Tareas (IA)", icon: Sparkles, highlight: true },
               { id: "special_tools", label: "6 Herramientas Especiales", icon: Wrench },
             ].map((tab) => {
@@ -282,6 +313,23 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
                 classrooms={classrooms}
                 selectedClassroomId={selectedClassroomId}
                 onOpenExamBuilder={() => setActiveTab("special_tools")}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === "announcements" && (
+            <motion.div
+              key="announcements"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+            >
+              <AnnouncementsManager
+                classrooms={classrooms}
+                onSaveClassrooms={onSaveClassrooms}
+                selectedClassroomId={selectedClassroomId}
+                onSelectClassroomId={setSelectedClassroomId}
+                teacherName={teacherConfig.teacherName || "Profesor"}
               />
             </motion.div>
           )}
@@ -538,6 +586,12 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
           )}
         </AnimatePresence>
       </main>
+
+      {/* Institution Registration Modal */}
+      <InstitutionRegistrationModal
+        isOpen={isInstitutionModalOpen}
+        onClose={() => setIsInstitutionModalOpen(false)}
+      />
     </div>
   );
 };

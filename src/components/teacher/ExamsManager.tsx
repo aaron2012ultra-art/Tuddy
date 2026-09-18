@@ -208,7 +208,25 @@ export const ExamsManager: React.FC<ExamsManagerProps> = ({
         </div>
       )}
 
-      {classExams.length === 0 ? (
+      {!currentClass ? (
+        <div className="p-12 bg-white rounded-2xl border border-slate-200 text-center">
+          <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-700">Aún no has creado ningún salón</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 mb-5">
+            Para registrar calificaciones y ponderaciones por alumno, primero crea tu grado y sección en la pestaña de Salones y Asistencia. Puedes generar exámenes listos para imprimir con IA en cualquier momento.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenExamBuilder}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Crear Examen Imprimible con IA</span>
+            </button>
+          </div>
+        </div>
+      ) : classExams.length === 0 ? (
         <div className="p-12 bg-white rounded-2xl border border-slate-200 text-center">
           <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-700">No hay exámenes registrados para este salón</h3>

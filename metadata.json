@@ -1,6 +1,6 @@
 {
   "name": "Tuddy - Tu compañero de estudio inteligente",
-  "description": "Tu compañero de estudio inteligente con IA, modo docente con código de acceso para listas por grado/sección, registro de tareas y exámenes, creador de tareas pedagógicas y herramientas especializadas para profesores.",
+  "description": "Tu compañero de estudio inteligente con IA, modo docente con código de acceso para salones, asistencia y exámenes, y portal para estudiantes con seguimiento de tareas, calificaciones, récord diario y mensajería con el profesor.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

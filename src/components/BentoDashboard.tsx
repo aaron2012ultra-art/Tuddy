@@ -36,6 +36,7 @@ interface BentoDashboardProps {
   subjects?: CustomSubject[];
   onOpenPetCustomizer?: () => void;
   onOpenSubjectManager?: () => void;
+  onOpenStudentPortal?: () => void;
 }
 
 export const BentoDashboard: React.FC<BentoDashboardProps> = ({
@@ -53,6 +54,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
   subjects = DEFAULT_SUBJECTS,
   onOpenPetCustomizer,
   onOpenSubjectManager,
+  onOpenStudentPortal,
 }) => {
   const { t } = useTranslation();
 
@@ -99,6 +101,37 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* FEATURED BANNER: SALÓN ESCOLAR & PORTAL DEL ESTUDIANTE */}
+      {onOpenStudentPortal && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-teal-700 rounded-3xl p-4 text-white shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 border border-emerald-400/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-amber-300 font-bold text-lg shrink-0">
+              🎒
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold tracking-tight">Portal del Estudiante • Tu Salón Escolar</h3>
+                <span className="bg-white/20 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Conexión con tu Profesor
+                </span>
+              </div>
+              <p className="text-xs text-emerald-100 mt-0.5">
+                Revisa las tareas del profesor, entrega tus soluciones, consulta tu récord diario de asistencia y tus notas.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenStudentPortal}
+            className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-emerald-50 text-emerald-800 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <span>Entrar a mi Salón con Código</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-600" />
+          </button>
+        </div>
+      )}
 
       {/* FEATURED: DUAL HERO BANNERS (TUDDY ACI + 20 MODELOS DE JUEGO) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

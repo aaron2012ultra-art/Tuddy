@@ -33,7 +33,10 @@ import {
   CheckSquare,
   Square,
   HelpCircle,
-  Filter
+  Filter,
+  Key,
+  Copy,
+  QrCode
 } from "lucide-react";
 import { 
   TeacherClassroom, 
@@ -41,6 +44,8 @@ import {
   AttendanceStatus, 
   StudentAttendanceEntry 
 } from "../../types";
+import { generateClassCode, generateStudentCode } from "../../utils/storage";
+import { StudentAccessCardsModal } from "./StudentAccessCardsModal";
 
 interface ClassroomManagerProps {
   classrooms: TeacherClassroom[];
@@ -128,6 +133,10 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
   // Batch import modal
   const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
   const [batchNamesText, setBatchNamesText] = useState("");
+
+  // Student Access Cards Modal
+  const [isAccessCardsModalOpen, setIsAccessCardsModalOpen] = useState(false);
+  const [copiedClassCode, setCopiedClassCode] = useState(false);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -331,6 +340,9 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
       subject: newSubject.trim() || "Materia General",
       academicYear: newYear.trim() || new Date().getFullYear().toString(),
       roomOrSchedule: newRoom.trim() || undefined,
+      classCode: generateClassCode(newGrade.trim(), newSection.trim(), newSubject.trim()),
+      announcements: [],
+      messages: [],
       students: [],
       attendanceByDate: {
         [todayStr]: {},
@@ -417,6 +429,7 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
         id: `stu-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         orderNumber: nextOrder,
         fullName: studentName.trim(),
+        studentCode: generateStudentCode(nextOrder, studentName.trim()),
         guardianContact: studentContact.trim() || undefined,
         notes: studentNotes.trim() || undefined,
         specialNeeds: studentSpecialNeeds.trim() || undefined,
@@ -468,10 +481,12 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
     const startOrder = currentClass.students.length;
     const newStudents: TeacherStudent[] = lines.map((line, idx) => {
       const cleanName = line.replace(/^\d+[\.\-\)]\s*/, "").trim();
+      const order = startOrder + idx + 1;
       return {
         id: `stu-${Date.now()}-${idx}`,
-        orderNumber: startOrder + idx + 1,
+        orderNumber: order,
         fullName: cleanName,
+        studentCode: generateStudentCode(order, cleanName),
         attendanceToday: "present",
       };
     });
@@ -715,6 +730,43 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
                     {currentClass.roomOrSchedule}
                   </p>
                 )}
+
+                {/* Classroom Link Code & Access Cards Quick Action */}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 px-2.5 py-1 rounded-lg text-xs">
+                    <Key className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-semibold text-emerald-700">Código de Salón:</span>
+                    <span className="font-mono font-black text-emerald-950 tracking-wider">
+                      {currentClass.classCode || "MAT-1A-7K"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = currentClass.classCode || "MAT-1A-7K";
+                        navigator.clipboard.writeText(code);
+                        setCopiedClassCode(true);
+                        setTimeout(() => setCopiedClassCode(false), 2000);
+                      }}
+                      className="ml-1 p-0.5 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded cursor-pointer transition-colors"
+                      title="Copiar código de salón para compartir con tus alumnos"
+                    >
+                      {copiedClassCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAccessCardsModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    title="Ver e imprimir fichas de acceso con código individual para cada estudiante"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>Fichas de Acceso de Estudiantes</span>
+                    <span className="bg-indigo-100 text-indigo-800 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                      {currentClass.students.length}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -968,7 +1020,15 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
                             </td>
 
                             <td className="py-3 px-3">
-                              <div className="font-bold text-slate-800 text-sm">{student.fullName}</div>
+                              <div className="font-bold text-slate-800 text-sm flex items-center gap-2 flex-wrap">
+                                <span>{student.fullName}</span>
+                                <span 
+                                  className="font-mono text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.2 rounded inline-flex items-center gap-1"
+                                  title="Código individual de acceso del alumno"
+                                >
+                                  ID: {student.studentCode || `EST-${student.orderNumber}`}
+                                </span>
+                              </div>
                               {student.notes && (
                                 <div className="text-[11px] text-slate-400 italic mt-0.5">{student.notes}</div>
                               )}
@@ -1809,6 +1869,15 @@ export const ClassroomManager: React.FC<ClassroomManagerProps> = ({
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Modal: Fichas de Acceso con Códigos de Estudiantes */}
+      {isAccessCardsModalOpen && currentClass && (
+        <StudentAccessCardsModal
+          classroom={currentClass}
+          teacherName="Profesor"
+          onClose={() => setIsAccessCardsModalOpen(false)}
+        />
       )}
     </div>
   );

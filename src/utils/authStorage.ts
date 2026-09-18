@@ -230,6 +230,49 @@ export function createOrLoginSocialAccount(
   return { account: newAccount };
 }
 
+export function linkSocialProviderToAccount(
+  currentUser: UserAccount,
+  provider: "google" | "github" | "apple" | "facebook",
+  socialProfile: {
+    displayName: string;
+    email?: string;
+    avatarUrl?: string;
+  },
+  existingDataSnapshot: Omit<AccountBackupData, "account" | "savedAt">
+): UserAccount {
+  const nowIso = new Date().toISOString();
+  const existingLinked = currentUser.linkedProviders || [];
+  const filtered = existingLinked.filter((p) => p.provider !== provider);
+
+  const updatedLinked = [
+    ...filtered,
+    {
+      provider,
+      displayName: socialProfile.displayName,
+      email: socialProfile.email,
+      avatarUrl: socialProfile.avatarUrl,
+      linkedAt: nowIso,
+    },
+  ];
+
+  const updatedAccount: UserAccount = {
+    ...currentUser,
+    email: currentUser.email || socialProfile.email,
+    avatarUrl: currentUser.avatarUrl || socialProfile.avatarUrl,
+    linkedProviders: updatedLinked,
+    lastSyncedAt: nowIso,
+  };
+
+  setCurrentUser(updatedAccount);
+  const backup: AccountBackupData = {
+    account: updatedAccount,
+    ...existingDataSnapshot,
+    savedAt: nowIso,
+  };
+  saveAccountBackup(backup);
+  return updatedAccount;
+}
+
 export function syncAccountData(
   user: UserAccount,
   dataSnapshot: Omit<AccountBackupData, "account" | "savedAt">

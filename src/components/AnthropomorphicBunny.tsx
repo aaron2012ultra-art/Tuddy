@@ -527,6 +527,7 @@ export interface PetAvatarProps {
   className?: string;
   onClick?: () => void;
   showBg?: boolean;
+  hasGoldRing?: boolean;
 }
 
 export const PetAvatar: React.FC<PetAvatarProps> = ({
@@ -536,6 +537,7 @@ export const PetAvatar: React.FC<PetAvatarProps> = ({
   className = "",
   onClick,
   showBg = true,
+  hasGoldRing = false,
 }) => {
   const containerSize = {
     icon: "w-6 h-6",
@@ -557,7 +559,9 @@ export const PetAvatar: React.FC<PetAvatarProps> = ({
     <div
       onClick={onClick}
       className={`relative inline-flex items-center justify-center rounded-xl overflow-hidden shrink-0 ${
-        showBg ? "bg-[#FFB7B2]/20 border border-[#FFB7B2]/40 shadow-xs" : ""
+        hasGoldRing 
+          ? "ring-2 ring-amber-400 ring-offset-1 shadow-[0_0_10px_rgba(245,158,11,0.5)] border-2 border-amber-300"
+          : showBg ? "bg-[#FFB7B2]/20 border border-[#FFB7B2]/40 shadow-xs" : ""
       } ${containerSize} ${onClick ? "cursor-pointer hover:scale-105 transition-transform" : ""} ${className}`}
     >
       <div className="flex items-center justify-center translate-y-1">
