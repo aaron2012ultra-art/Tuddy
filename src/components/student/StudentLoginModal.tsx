@@ -166,14 +166,14 @@ export const StudentLoginModal: React.FC<StudentLoginModalProps> = ({
                   <Building className="w-4 h-4 text-indigo-600" />
                   1. Código de Institución / Colegio
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">ej: COL-SAN-8921</span>
+                <span className="text-[10px] text-slate-400 font-mono">ej: COL-ABC-1234</span>
               </label>
               <input
                 type="text"
                 required
                 value={institutionCodeInput}
                 onChange={(e) => setInstitutionCodeInput(e.target.value)}
-                placeholder="COL-SAN-8921"
+                placeholder="COL-ABC-1234"
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 uppercase tracking-wider focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition-all"
               />
               <p className="text-[11px] text-slate-400 mt-1">

@@ -23,7 +23,8 @@ import {
   EducationalInstitution,
   EducationalInstitutionTeacher,
   EducationalInstitutionStudent,
-  InstitutionAnnouncement
+  InstitutionAnnouncement,
+  AttachedFile
 } from "../types";
 
 const STORAGE_KEYS = {
@@ -1106,6 +1107,7 @@ export interface SchoolDirectMessage {
   sender: "teacher" | "student";
   text: string;
   timestamp: string;
+  attachments?: AttachedFile[];
 }
 
 export function getStoredSchoolMessages(): SchoolDirectMessage[] {
@@ -1132,11 +1134,13 @@ export function getStoredSchoolMessages(): SchoolDirectMessage[] {
   }
 }
 
+
 export function sendSchoolDirectMessage(
   teacherId: string,
   teacherName: string,
   subject: string,
-  text: string
+  text: string,
+  attachments?: AttachedFile[]
 ): SchoolDirectMessage {
   const current = getStoredSchoolMessages();
   const newMsg: SchoolDirectMessage = {
@@ -1147,6 +1151,7 @@ export function sendSchoolDirectMessage(
     sender: "student",
     text,
     timestamp: "Hoy a las " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    attachments: attachments && attachments.length > 0 ? attachments : undefined,
   };
 
   const updated = [...current, newMsg];
@@ -1159,44 +1164,7 @@ export function sendSchoolDirectMessage(
       teacherName,
       subject,
       sender: "teacher",
-      text: `Hola, he recibido tu mensaje sobre ${subject}. Lo tomaré en cuenta para nuestra próxima sesión de clase. ¡Buen trabajo por tu dedicación! 📚✨`,
-      timestamp: "Hace un momento",
-    };
-    const refreshed = getStoredSchoolMessages();
-    localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify([...refreshed, autoReply]));
-  }, 1200);
-
-  return newMsg;
-}
-
-export function sendSchoolDirectMessage(
-  teacherId: string,
-  teacherName: string,
-  subject: string,
-  text: string
-): SchoolDirectMessage {
-  const current = getStoredSchoolMessages();
-  const newMsg: SchoolDirectMessage = {
-    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    teacherId,
-    teacherName,
-    subject,
-    sender: "student",
-    text,
-    timestamp: "Hoy a las " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-  };
-
-  const updated = [...current, newMsg];
-  localStorage.setItem(STORAGE_KEYS.SCHOOL_MESSAGES, JSON.stringify(updated));
-
-  setTimeout(() => {
-    const autoReply: SchoolDirectMessage = {
-      id: `msg-reply-${Date.now()}`,
-      teacherId,
-      teacherName,
-      subject,
-      sender: "teacher",
-      text: `Hola, he recibido tu mensaje sobre ${subject}. Lo tomaré en cuenta para nuestra próxima sesión de clase. ¡Buen trabajo por tu dedicación! 📚✨`,
+      text: `Hola, he recibido tu mensaje sobre ${subject}${attachments && attachments.length > 0 ? " junto con los archivos adjuntos" : ""}. Los revisaré con detenimiento para nuestra próxima sesión. ¡Buen trabajo por tu dedicación! 📚✨`,
       timestamp: "Hace un momento",
     };
     const refreshed = getStoredSchoolMessages();

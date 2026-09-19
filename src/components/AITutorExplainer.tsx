@@ -23,9 +23,10 @@ import {
   Crown,
   ArrowUp,
   BrainCircuit,
-  MessageSquare
+  MessageSquare,
+  FileUp
 } from "lucide-react";
-import { StudyNote, Flashcard, PetCustomization, Deck, ChatMessage, ChatSession, ExamQuestion } from "../types";
+import { StudyNote, Flashcard, PetCustomization, Deck, ChatMessage, ChatSession, ExamQuestion, AttachedFile } from "../types";
 import { PetAvatar } from "./AnthropomorphicBunny";
 import { DEFAULT_PET } from "../utils/storage";
 import { useTranslation } from "../utils/translations";
@@ -33,6 +34,7 @@ import confetti from "canvas-confetti";
 import { ConfirmModal } from "./ConfirmModal";
 import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatMessageItem } from "./chat/ChatMessageItem";
+import { readFileAsAttachedFile, AttachmentPreviewList } from "../utils/fileAttachmentUtils";
 
 interface AITutorExplainerProps {
   onSaveAsNote?: (note: StudyNote) => void;
@@ -127,6 +129,47 @@ Puedo ayudarte con requerimientos académicos de cualquier materia:
   const [isCustomDirectiveOpen, setIsCustomDirectiveOpen] = useState(false);
   const [attachedNoteId, setAttachedNoteId] = useState<string | null>(null);
   const [isAttachNoteOpen, setIsAttachNoteOpen] = useState(false);
+  
+  // File attachments state (Any file type support)
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File handling functions
+  const handleProcessFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+    setIsUploadingFiles(true);
+    try {
+      const processed: AttachedFile[] = [];
+      for (const file of files) {
+        // Enforce reasonable single file size limit (15MB)
+        if (file.size > 15 * 1024 * 1024) {
+          alert(`El archivo "${file.name}" supera el límite recomendado de 15MB.`);
+          continue;
+        }
+        const attached = await readFileAsAttachedFile(file);
+        processed.push(attached);
+      }
+      setAttachedFiles((prev) => [...prev, ...processed]);
+    } catch (err) {
+      console.error("Error al procesar archivos adjuntos:", err);
+    } finally {
+      setIsUploadingFiles(false);
+    }
+  };
+
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleProcessFiles(e.target.files);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveFile = (id: string) => {
+    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
+  };
   
   // Voice state
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
@@ -281,7 +324,14 @@ Puedo ayudarte con requerimientos académicos de cualquier materia:
 
   // Handler: Send Message
   const handleSendMessage = async (textOverride?: string, customDirectiveOverride?: string, modeOverride?: any) => {
-    const textToSend = (textOverride !== undefined ? textOverride : inputQuery).trim();
+    const currentFiles = [...attachedFiles];
+    let textToSend = (textOverride !== undefined ? textOverride : inputQuery).trim();
+
+    // If user attached files without text, generate a helpful default prompt
+    if (!textToSend && currentFiles.length > 0) {
+      textToSend = `He adjuntado ${currentFiles.length} archivo(s): ${currentFiles.map((f) => `"${f.name}"`).join(", ")}. Por favor revísalos a fondo y ayúdame con su contenido.`;
+    }
+
     if (!textToSend || isLoading) return;
 
     const currentDirective = customDirectiveOverride !== undefined ? customDirectiveOverride : activeDirective;
@@ -302,6 +352,7 @@ Puedo ayudarte con requerimientos académicos de cualquier materia:
       timestamp: new Date().toISOString(),
       mode: currentMode,
       specialInstruction: currentDirective || undefined,
+      attachments: currentFiles.length > 0 ? currentFiles : undefined,
     };
 
     const currentMessages = activeSession?.messages || [];
@@ -327,6 +378,7 @@ Puedo ayudarte con requerimientos académicos de cualquier materia:
     );
 
     setInputQuery("");
+    setAttachedFiles([]);
     setIsLoading(true);
 
     if ("speechSynthesis" in window) {
@@ -384,7 +436,11 @@ Un examen masivo de 100 preguntas completas con justificaciones, rúbricas diná
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: updatedMessages.map((m) => ({ 
+            role: m.role, 
+            content: m.content,
+            attachments: m.attachments,
+          })),
           isPro,
           mode: currentMode,
           specialInstruction: currentDirective,
@@ -912,8 +968,67 @@ Un examen masivo de 100 preguntas completas con justificaciones, rúbricas diná
               </div>
             )}
 
-            {/* ChatGPT-style Floating Input Box */}
-            <div className="relative rounded-2xl border border-slate-300/90 bg-slate-50/70 focus-within:bg-white focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20 transition-all p-2 flex items-end gap-2 shadow-2xs">
+            {/* Attached Files Preview List */}
+            {attachedFiles.length > 0 && (
+              <div className="bg-white/80 p-2 rounded-2xl border border-slate-200">
+                <div className="text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                  <span>📎 Archivos adjuntos para Tuddy ({attachedFiles.length}):</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachedFiles([])}
+                    className="text-[10px] text-rose-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    Quitar todos
+                  </button>
+                </div>
+                <AttachmentPreviewList files={attachedFiles} onRemove={handleRemoveFile} />
+              </div>
+            )}
+
+            {/* Hidden File Input for uploading any type of file */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileSelection}
+              className="hidden"
+            />
+
+            {/* ChatGPT-style Floating Input Box with Drag & Drop */}
+            <div 
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDraggingOver(true);
+              }}
+              onDragLeave={() => setIsDraggingOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDraggingOver(false);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  handleProcessFiles(e.dataTransfer.files);
+                }
+              }}
+              className={`relative rounded-2xl border transition-all p-2 flex items-end gap-2 shadow-2xs ${
+                isDraggingOver
+                  ? "border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-400/30"
+                  : "border-slate-300/90 bg-slate-50/70 focus-within:bg-white focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20"
+              }`}
+            >
+              {/* Attach file button (PDFs, docs, images, code, any file) */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingFiles}
+                className="p-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 transition-colors cursor-pointer shrink-0"
+                title="Adjuntar todo tipo de archivos (PDFs, Word, imágenes, apuntes, código, audio, etc.)"
+              >
+                {isUploadingFiles ? (
+                  <RotateCw className="w-4 h-4 animate-spin text-emerald-600" />
+                ) : (
+                  <FileUp className="w-4 h-4" />
+                )}
+              </button>
+
               {/* Attach note popover button */}
               {notes.length > 0 && (
                 <div className="relative shrink-0">
@@ -965,14 +1080,14 @@ Un examen masivo de 100 preguntas completas con justificaciones, rúbricas diná
                     handleSendMessage();
                   }
                 }}
-                placeholder={`Envía un mensaje a ${pet.name} o pídele una tarea específica...`}
+                placeholder={isDraggingOver ? "Suelta tus archivos aquí..." : `Envía un mensaje o adjunta archivos para ${pet.name}...`}
                 className="flex-1 max-h-36 resize-none bg-transparent p-1.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden leading-relaxed font-normal"
               />
 
               {/* Send Button */}
               <button
                 type="button"
-                disabled={isLoading || !inputQuery.trim()}
+                disabled={isLoading || (!inputQuery.trim() && attachedFiles.length === 0)}
                 onClick={() => handleSendMessage()}
                 className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900 text-white flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-xs"
                 title="Enviar mensaje (Enter)"

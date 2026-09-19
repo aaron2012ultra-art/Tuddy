@@ -16,6 +16,7 @@ import ReactMarkdown from "react-markdown";
 import { ChatMessage, PetCustomization, StudyNote, Flashcard, ExamQuestion, GeneratedChatTool } from "../../types";
 import { PetAvatar } from "../AnthropomorphicBunny";
 import { GeneratedToolCard } from "./GeneratedToolCard";
+import { AttachmentListDisplay } from "../../utils/fileAttachmentUtils";
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -124,6 +125,11 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
           <div className="markdown-body text-xs sm:text-sm leading-relaxed text-slate-800 break-words prose prose-slate max-w-none">
             <ReactMarkdown>{cleanContent}</ReactMarkdown>
           </div>
+
+          {/* Attached Files Display */}
+          {message.attachments && message.attachments.length > 0 && (
+            <AttachmentListDisplay files={message.attachments} />
+          )}
 
           {/* Inline Generated Interactive Tool (Exam, Flashcards, Note, etc.) */}
           {tool && (

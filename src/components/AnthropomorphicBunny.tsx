@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { PetCustomization } from "../types";
 import { CLOTHING_ITEMS } from "../data/clothingItems";
+import { BunnyOutfitRenderer } from "./BunnyOutfits";
 
 // Quick lookup map for 50 clothing customizations
 const CLOTHING_MAP: Record<string, { vest: string; shirt: string; trim: string; buttons: string; collar?: string }> = {};
@@ -275,43 +276,8 @@ export const AnthropomorphicBunny: React.FC<AnthropomorphicBunnyProps> = ({
         {/* 4. TAIL (Peeking behind body) */}
         <circle cx="34" cy="132" r="10" fill="#FFFFFF" stroke={fur.stroke} strokeWidth="2" />
 
-        {/* 5. ANTHROPOMORPHIC TORSO & OUTFIT */}
-        <g id="torso-and-clothing">
-          {/* Inner body / shirt */}
-          <path
-            d="M45 88 Q70 82 95 88 L100 144 Q70 148 40 144 Z"
-            fill={outfit.shirt}
-            stroke={fur.stroke}
-            strokeWidth="2"
-          />
-
-          {/* Academic Vest / Outfit Layer */}
-          <path
-            d="M44 94 C54 94 58 108 58 122 L58 144 L41 143 Z"
-            fill={outfit.vest}
-            stroke={outfit.trim}
-            strokeWidth="1.5"
-          />
-          <path
-            d="M96 94 C86 94 82 108 82 122 L82 144 L99 143 Z"
-            fill={outfit.vest}
-            stroke={outfit.trim}
-            strokeWidth="1.5"
-          />
-
-          {/* Collar of Shirt */}
-          <polygon points="56,88 70,102 62,94" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="1.5" />
-          <polygon points="84,88 70,102 78,94" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="1.5" />
-
-          {/* Vest Buttons */}
-          <circle cx="70" cy="116" r="2.5" fill={outfit.buttons} />
-          <circle cx="70" cy="128" r="2.5" fill={outfit.buttons} />
-          <circle cx="70" cy="138" r="2.5" fill={outfit.buttons} />
-
-          {/* Belt / Waistline */}
-          <rect x="42" y="140" width="56" height="5" fill="#334155" rx="1" />
-          <rect x="66" y="139" width="8" height="7" fill="#F59E0B" rx="1" />
-        </g>
+        {/* 5. ANTHROPOMORPHIC TORSO & OUTFIT (Unique Distinct Silhouettes & Designs) */}
+        <BunnyOutfitRenderer outfitId={pet.outfit} outfit={outfit} fur={fur} />
 
         {/* 6. ANTHROPOMORPHIC ARMS & HANDS */}
         {/* Left Arm: Posing based on personality */}

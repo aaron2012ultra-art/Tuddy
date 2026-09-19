@@ -1026,13 +1026,42 @@ ${notesContext ? `NOTAS / APUNTES DEL ESTUDIANTE:\n"""${notesContext.slice(0, 35
 ESTADO DE SUSCRIPCIÓN Y LIMITACIONES NATIVAS:
 ${proStatusGuidance}`;
 
-    // Format conversation history for Gemini
+    // Format conversation history for Gemini with full multimodal and text file attachments support
     const contents: any[] = [];
     for (const msg of messages) {
       const role = (msg.role === "assistant" || msg.role === "model") ? "model" : "user";
+      const parts: any[] = [];
+      let messageText = String(msg.content || "");
+
+      if (Array.isArray(msg.attachments) && msg.attachments.length > 0) {
+        for (const att of msg.attachments) {
+          const mime = (att.type || "").toLowerCase();
+          // Handle Images and PDFs as inlineData for Gemini
+          if (att.dataUrl && (mime.startsWith("image/") || mime.includes("pdf"))) {
+            const base64Data = att.dataUrl.split(",")[1];
+            if (base64Data) {
+              const actualMime = mime.includes("pdf") ? "application/pdf" : (att.type || "image/png");
+              parts.push({
+                inlineData: {
+                  mimeType: actualMime,
+                  data: base64Data,
+                },
+              });
+            }
+          }
+          // Include extracted document or code text
+          if (att.textContent) {
+            messageText += `\n\n--- ARCHIVO ADJUNTO: "${att.name}" (${att.type || "documento"}) ---\n${att.textContent}\n--- FIN DE ARCHIVO "${att.name}" ---`;
+          } else if (!mime.startsWith("image/") && !mime.includes("pdf")) {
+            messageText += `\n\n[Archivo adjunto recibido: "${att.name}" (${att.type || "archivo"}, tamaño: ${att.size || 0} bytes)]`;
+          }
+        }
+      }
+
+      parts.unshift({ text: messageText });
       contents.push({
         role,
-        parts: [{ text: String(msg.content || "") }],
+        parts,
       });
     }
 

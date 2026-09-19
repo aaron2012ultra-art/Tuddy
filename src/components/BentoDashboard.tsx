@@ -10,7 +10,13 @@ import {
   Languages as LanguagesIcon,
   Flame,
   CheckCircle2,
-  Palette
+  Palette,
+  Wrench,
+  Calculator,
+  Coffee,
+  RotateCw,
+  Network,
+  Headphones
 } from "lucide-react";
 import { ScheduleItem, StudyNote, ExamSession, UserStats, Flashcard, PetCustomization, CustomSubject } from "../types";
 import { AnthropomorphicBunny } from "./AnthropomorphicBunny";
@@ -24,7 +30,7 @@ interface BentoDashboardProps {
   stats: UserStats;
   flashcards: Flashcard[];
   onNavigate: (
-    tab: "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games",
+    tab: "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools",
     title?: string,
     extraData?: Record<string, any>
   ) => void;
@@ -611,6 +617,129 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
               className="font-bold text-[#4A8A9E] hover:underline cursor-pointer"
             >
               {t.navAnalytics} →
+            </button>
+          </div>
+        </div>
+
+        {/* CARD 7: CENTRO DE HERRAMIENTAS DE ESTUDIO & AULA (col-span-12) */}
+        <div className="md:col-span-12 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 border-2 border-indigo-900/60 shadow-md text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center">
+                <Wrench className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-black tracking-tight flex items-center gap-2">
+                  Centro de Herramientas de Estudio & Aula
+                  <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full font-bold border border-indigo-400/20">
+                    6 Herramientas Clave
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Calculadora científica, pomodoro con sonidos, ruleta de participación, mapas conceptuales y diplomas.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onNavigate("tools")}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+            >
+              <span>Abrir Suite Completa</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Quick Tool 1: Calc */}
+            <button
+              type="button"
+              onClick={() => onNavigate("tools", "Calculadora & Graficadora", { activeToolSubtab: "calculator" })}
+              className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 text-left transition-all hover:scale-102 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2">
+                <Calculator className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-200">Calculadora 2D</span>
+                <span className="text-[10px] text-slate-400">Funciones & Fórmulas</span>
+              </div>
+            </button>
+
+            {/* Quick Tool 2: Pomodoro */}
+            <button
+              type="button"
+              onClick={() => onNavigate("tools", "Pomodoro & Sonidos", { activeToolSubtab: "pomodoro" })}
+              className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 text-left transition-all hover:scale-102 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center mb-2">
+                <Coffee className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-200">Pomodoro 25m</span>
+                <span className="text-[10px] text-slate-400">Lluvia, Olas & Zen</span>
+              </div>
+            </button>
+
+            {/* Quick Tool 3: Wheel */}
+            <button
+              type="button"
+              onClick={() => onNavigate("tools", "Ruleta de Participación", { activeToolSubtab: "wheel" })}
+              className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 text-left transition-all hover:scale-102 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-2">
+                <RotateCw className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-200">Ruleta de Aula</span>
+                <span className="text-[10px] text-slate-400">Sorteo de Alumnos</span>
+              </div>
+            </button>
+
+            {/* Quick Tool 4: MindMap */}
+            <button
+              type="button"
+              onClick={() => onNavigate("tools", "Mapas Mentales", { activeToolSubtab: "mindmap" })}
+              className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 text-left transition-all hover:scale-102 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center mb-2">
+                <Network className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-200">Mapas Mentales</span>
+                <span className="text-[10px] text-slate-400">Ramas & Ideas</span>
+              </div>
+            </button>
+
+            {/* Quick Tool 5: Diploma */}
+            <button
+              type="button"
+              onClick={() => onNavigate("tools", "Diplomas de Honor", { activeToolSubtab: "diploma" })}
+              className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 text-left transition-all hover:scale-102 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-2">
+                <Award className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-200">Diplomas de Honor</span>
+                <span className="text-[10px] text-slate-400">Sello Dorado PDF</span>
+              </div>
+            </button>
+
+            {/* Quick Tool 6: Audio Reader */}
+            <button
+              type="button"
+              onClick={() => onNavigate("tools", "Lector a Audio", { activeToolSubtab: "audio" })}
+              className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 text-left transition-all hover:scale-102 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-2">
+                <Headphones className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-200">Lector a Audio</span>
+                <span className="text-[10px] text-slate-400">Voz Natural</span>
+              </div>
             </button>
           </div>
         </div>

@@ -21,7 +21,9 @@ import {
   Mail,
   RefreshCw,
   Megaphone,
-  Building
+  Building,
+  RotateCw,
+  Award
 } from "lucide-react";
 import { 
   TeacherClassroom, 
@@ -46,6 +48,8 @@ import { AnnouncementsManager } from "./AnnouncementsManager";
 import { BetterTaskCreator } from "./BetterTaskCreator";
 import { SpecialTeacherTools } from "./SpecialTeacherTools";
 import { InstitutionRegistrationModal } from "../institution/InstitutionRegistrationModal";
+import { ClassroomParticipationWheel } from "../tools/ClassroomParticipationWheel";
+import { HonorDiplomaGenerator } from "../tools/HonorDiplomaGenerator";
 
 interface TeacherModuleProps {
   classrooms: TeacherClassroom[];
@@ -235,7 +239,9 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
               { id: "exams", label: "Registro de Exámenes", icon: FileSpreadsheet },
               { id: "announcements", label: "Avisos & Mensajes a Alumnos", icon: Megaphone },
               { id: "better_tasks", label: "Creador de Mejores Tareas (IA)", icon: Sparkles, highlight: true },
-              { id: "special_tools", label: "6 Herramientas Especiales", icon: Wrench },
+              { id: "wheel", label: "Ruleta de Participación", icon: RotateCw, highlight: true },
+              { id: "diplomas", label: "Diplomas de Honor", icon: Award, highlight: true },
+              { id: "special_tools", label: "6 Herramientas Pedagógicas", icon: Wrench },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -360,6 +366,35 @@ export const TeacherModule: React.FC<TeacherModuleProps> = ({
               <SpecialTeacherTools
                 classrooms={classrooms}
                 selectedClassroomId={selectedClassroomId}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === "wheel" && (
+            <motion.div
+              key="wheel"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+            >
+              <ClassroomParticipationWheel
+                classrooms={classrooms}
+                defaultClassroomId={selectedClassroomId}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === "diplomas" && (
+            <motion.div
+              key="diplomas"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+            >
+              <HonorDiplomaGenerator
+                classrooms={classrooms}
+                defaultInstitutionName={teacherConfig.schoolName || "Institución Educativa"}
+                defaultTeacherName={teacherConfig.teacherName || "Profesor Titular"}
               />
             </motion.div>
           )}

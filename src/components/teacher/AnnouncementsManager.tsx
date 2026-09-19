@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { 
   Megaphone, 
   Send, 
@@ -12,17 +12,22 @@ import {
   Search,
   Sparkles,
   Users,
-  Bell
+  Bell,
+  Paperclip,
+  FileUp,
+  RotateCw
 } from "lucide-react";
 import { 
   TeacherClassroom, 
   ClassroomAnnouncement, 
-  StudentTeacherMessage 
+  StudentTeacherMessage,
+  AttachedFile
 } from "../../types";
 import { 
   addClassroomAnnouncement, 
   sendStudentTeacherMessage 
 } from "../../utils/storage";
+import { AttachmentPreviewList, readFileAsAttachedFile } from "../../utils/fileAttachmentUtils";
 
 interface AnnouncementsManagerProps {
   classrooms: TeacherClassroom[];
@@ -48,11 +53,67 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
   const [annTitle, setAnnTitle] = useState("");
   const [annContent, setAnnContent] = useState("");
   const [annPriority, setAnnPriority] = useState<"normal" | "important" | "urgent">("normal");
+  
+  // Announcement files state
+  const [annFiles, setAnnFiles] = useState<AttachedFile[]>([]);
+  const [isUploadingAnnFiles, setIsUploadingAnnFiles] = useState(false);
+  const [isAnnDragOver, setIsAnnDragOver] = useState(false);
+  const annFileInputRef = useRef<HTMLInputElement>(null);
 
   // Teacher reply state in messages
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
+  
+  // Reply files state
+  const [replyFiles, setReplyFiles] = useState<AttachedFile[]>([]);
+  const [isUploadingReplyFiles, setIsUploadingReplyFiles] = useState(false);
+  const replyFileInputRef = useRef<HTMLInputElement>(null);
+
+  // File processors
+  const handleProcessAnnFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+    setIsUploadingAnnFiles(true);
+    try {
+      const processed: AttachedFile[] = [];
+      for (const file of files) {
+        if (file.size > 15 * 1024 * 1024) {
+          alert(`El archivo "${file.name}" supera el límite de 15MB.`);
+          continue;
+        }
+        const attached = await readFileAsAttachedFile(file);
+        processed.push(attached);
+      }
+      setAnnFiles((prev) => [...prev, ...processed]);
+    } catch (err) {
+      console.error("Error al procesar archivos para comunicado:", err);
+    } finally {
+      setIsUploadingAnnFiles(false);
+    }
+  };
+
+  const handleProcessReplyFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+    setIsUploadingReplyFiles(true);
+    try {
+      const processed: AttachedFile[] = [];
+      for (const file of files) {
+        if (file.size > 15 * 1024 * 1024) {
+          alert(`El archivo "${file.name}" supera el límite de 15MB.`);
+          continue;
+        }
+        const attached = await readFileAsAttachedFile(file);
+        processed.push(attached);
+      }
+      setReplyFiles((prev) => [...prev, ...processed]);
+    } catch (err) {
+      console.error("Error al procesar archivos para mensaje:", err);
+    } finally {
+      setIsUploadingReplyFiles(false);
+    }
+  };
 
   const handleCreateAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +128,7 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
       priority: annPriority,
       authorName: teacherName || "Docente",
       createdAt: new Date().toISOString(),
+      attachments: annFiles.length > 0 ? annFiles : undefined,
     };
 
     const updated = classrooms.map((c) =>
@@ -84,6 +146,7 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
     setAnnTitle("");
     setAnnContent("");
     setAnnPriority("normal");
+    setAnnFiles([]);
   };
 
   const handleDeleteAnnouncement = (annId: string) => {
@@ -96,7 +159,7 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
   };
 
   const handleSendTeacherReply = (studentId: string) => {
-    if (!currentClass || !replyText.trim()) return;
+    if (!currentClass || (!replyText.trim() && replyFiles.length === 0)) return;
 
     const newReply: StudentTeacherMessage = {
       id: `msg-${Date.now()}`,
@@ -104,9 +167,10 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
       studentId,
       sender: "teacher",
       senderName: teacherName || "Profesor",
-      content: replyText.trim(),
+      content: replyText.trim() || (replyFiles.length > 0 ? `Te he adjuntado ${replyFiles.length} archivo(s): ${replyFiles.map(f => f.name).join(", ")}` : ""),
       timestamp: new Date().toISOString(),
       read: true,
+      attachments: replyFiles.length > 0 ? replyFiles : undefined,
     };
 
     const updatedMessages = [...(currentClass.messages || []), newReply];
@@ -116,6 +180,7 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
 
     onSaveClassrooms(updated);
     setReplyText("");
+    setReplyFiles([]);
   };
 
   // Group messages by student
@@ -288,6 +353,80 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
                     />
                   </div>
 
+                  {/* Attached Files Section for Announcement */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Archivos Adjuntos (Guías, PDFs, documentos, imágenes, ejercicios)</span>
+                      </label>
+                      <input
+                        ref={annFileInputRef}
+                        type="file"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            handleProcessAnnFiles(e.target.files);
+                            e.target.value = "";
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => annFileInputRef.current?.click()}
+                        disabled={isUploadingAnnFiles}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                      >
+                        {isUploadingAnnFiles ? (
+                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <FileUp className="w-3.5 h-3.5" />
+                        )}
+                        <span>Adjuntar Archivos</span>
+                      </button>
+                    </div>
+
+                    {/* Drag and drop zone */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsAnnDragOver(true);
+                      }}
+                      onDragLeave={() => setIsAnnDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsAnnDragOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleProcessAnnFiles(e.dataTransfer.files);
+                        }
+                      }}
+                      onClick={() => annFileInputRef.current?.click()}
+                      className={`p-3 rounded-xl border-2 border-dashed transition-all text-center cursor-pointer ${
+                        isAnnDragOver
+                          ? "border-indigo-500 bg-indigo-50/80 text-indigo-900"
+                          : "border-slate-300 bg-slate-50/60 hover:bg-slate-50 text-slate-500"
+                      }`}
+                    >
+                      <p className="text-xs font-semibold">
+                        Arrastra y suelta aquí cualquier archivo o <span className="text-indigo-600 underline">haz clic para explorar</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        Soporta todo tipo de archivos: PDF, Word (.docx), Excel, PowerPoint, imágenes, código, etc. (Máx 15MB)
+                      </p>
+                    </div>
+
+                    {/* Preview of attached files */}
+                    {annFiles.length > 0 && (
+                      <div className="pt-2">
+                        <AttachmentPreviewList
+                          files={annFiles}
+                          onRemove={(fileId) => setAnnFiles((prev) => prev.filter((f) => f.id !== fileId))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       type="button"
@@ -363,6 +502,17 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
                               <p className="text-xs text-slate-600 mt-1 whitespace-pre-line leading-relaxed">
                                 {ann.content}
                               </p>
+
+                              {/* Attachments inside announcement */}
+                              {ann.attachments && ann.attachments.length > 0 && (
+                                <div className="mt-3 pt-2 border-t border-slate-100">
+                                  <span className="text-[10px] font-bold text-slate-500 mb-1.5 block">
+                                    📎 Documentos y recursos adjuntos ({ann.attachments.length}):
+                                  </span>
+                                  <AttachmentPreviewList files={ann.attachments} readOnly={true} />
+                                </div>
+                              )}
+
                               <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-2">
                                 <span>Publicado: <strong>{ann.date}</strong></span>
                                 <span>•</span>
@@ -488,14 +638,67 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
                                 </span>
                               </div>
                               <p className="leading-relaxed whitespace-pre-line">{msg.content}</p>
+
+                              {/* Message attachments */}
+                              {msg.attachments && msg.attachments.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-white/20">
+                                  <AttachmentPreviewList files={msg.attachments} readOnly={true} />
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
                       })}
                     </div>
 
+                    {/* Reply Attachments Preview if selected */}
+                    {replyFiles.length > 0 && (
+                      <div className="px-3 pt-2 bg-slate-50/90 border-t border-slate-200">
+                        <div className="text-[10px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                          <span>📎 Archivos a enviar ({replyFiles.length}):</span>
+                          <button
+                            type="button"
+                            onClick={() => setReplyFiles([])}
+                            className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                        <AttachmentPreviewList
+                          files={replyFiles}
+                          onRemove={(id) => setReplyFiles((prev) => prev.filter((f) => f.id !== id))}
+                        />
+                      </div>
+                    )}
+
                     {/* Reply Input */}
                     <div className="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center gap-2">
+                      <input
+                        ref={replyFileInputRef}
+                        type="file"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            handleProcessReplyFiles(e.target.files);
+                            e.target.value = "";
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => replyFileInputRef.current?.click()}
+                        disabled={isUploadingReplyFiles}
+                        className="p-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer shrink-0"
+                        title="Adjuntar archivos para el estudiante (PDF, documento, fotos, etc.)"
+                      >
+                        {isUploadingReplyFiles ? (
+                          <RotateCw className="w-4 h-4 animate-spin text-indigo-600" />
+                        ) : (
+                          <Paperclip className="w-4 h-4" />
+                        )}
+                      </button>
+
                       <input
                         type="text"
                         value={replyText}
@@ -512,7 +715,7 @@ export const AnnouncementsManager: React.FC<AnnouncementsManagerProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSendTeacherReply(activeStudent.id)}
-                        disabled={!replyText.trim()}
+                        disabled={!replyText.trim() && replyFiles.length === 0}
                         className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                       >
                         <Send className="w-3.5 h-3.5" />

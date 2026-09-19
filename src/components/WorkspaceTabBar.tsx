@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Gamepad2,
   Sparkles,
-  BrainCircuit
+  BrainCircuit,
+  Wrench
 } from "lucide-react";
 import { WorkspaceTab, PetCustomization } from "../types";
 import { PetAvatar } from "./AnthropomorphicBunny";
@@ -59,6 +60,7 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
       case "languages": return t.navLanguages || tab.title;
       case "analytics": return t.navAnalytics || tab.title;
       case "games": return "Juegos IA (20 Modelos)";
+      case "tools": return tab.title || "Herramientas";
       default: return tab.title;
     }
   };
@@ -98,6 +100,8 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
         return <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />;
       case "games":
         return <Gamepad2 className="w-3.5 h-3.5 text-amber-500" />;
+      case "tools":
+        return <Wrench className="w-3.5 h-3.5 text-indigo-600" />;
       default:
         return <LayoutGrid className="w-3.5 h-3.5 text-stone-600" />;
     }
@@ -328,6 +332,28 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
                   </div>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-900 font-black">
                     Nuevo
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenNewTab("tools", "Centro de Herramientas");
+                    setIsNewMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-indigo-950 bg-indigo-50/70 hover:bg-indigo-100 transition-colors text-left border border-indigo-200/70 mt-1"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                      <Wrench className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-indigo-950 leading-tight">Centro de Herramientas</div>
+                      <p className="text-[9px] text-indigo-700/80 font-normal">Calculadora, Pomodoro, Ruleta, Mapas</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-900 font-black">
+                    6 en 1
                   </span>
                 </button>
 

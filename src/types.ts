@@ -7,11 +7,12 @@ export type AppTab =
   | "schedule"
   | "language_learning"
   | "games"
-  | "analytics";
+  | "analytics"
+  | "tools";
 
 export interface WorkspaceTab {
   id: string;
-  type: "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games";
+  type: "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools";
   title: string;
   subtitle?: string;
   closable: boolean;
@@ -22,6 +23,7 @@ export interface WorkspaceTab {
   gameId?: string;
   examQuestions?: ExamQuestion[];
   autoStartExam?: boolean;
+  activeToolSubtab?: "calculator" | "pomodoro" | "wheel" | "mindmap" | "diploma" | "audio";
 }
 
 export interface Flashcard {
@@ -487,6 +489,15 @@ export interface GeneratedNoteTool {
   tags?: string[];
 }
 
+export interface AttachedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl?: string; // base64 / blob URL for preview and download
+  textContent?: string; // extracted text content for text/code/notes
+}
+
 export type GeneratedChatTool = GeneratedExamTool | GeneratedFlashcardsTool | GeneratedNoteTool;
 
 export interface ChatMessage {
@@ -500,6 +511,7 @@ export interface ChatMessage {
   plusReason?: string;
   suggestedActions?: Array<{ label: string; action: string; prompt?: string }>;
   generatedTool?: GeneratedChatTool;
+  attachments?: AttachedFile[];
 }
 
 export interface ChatSession {
@@ -545,6 +557,7 @@ export interface ClassroomAnnouncement {
   priority?: "normal" | "important" | "urgent";
   authorName: string;
   createdAt?: string;
+  attachments?: AttachedFile[];
 }
 
 export interface StudentTeacherMessage {
@@ -556,6 +569,7 @@ export interface StudentTeacherMessage {
   content: string;
   timestamp: string;
   read?: boolean;
+  attachments?: AttachedFile[];
 }
 
 export interface EducationalInstitutionTeacher {
@@ -586,6 +600,7 @@ export interface InstitutionAnnouncement {
   role: "Dirección" | "Coordinación Académica" | "Tutoría" | "Docente";
   date: string;
   important?: boolean;
+  attachments?: AttachedFile[];
 }
 
 export interface EducationalInstitution {
@@ -670,6 +685,8 @@ export type TeacherTab =
   | "announcements"
   | "better_tasks" 
   | "special_tools" 
+  | "wheel"
+  | "diplomas"
   | "settings";
 
 export interface TeacherAssignment {

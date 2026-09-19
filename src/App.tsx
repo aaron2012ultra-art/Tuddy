@@ -19,7 +19,8 @@ import {
   User,
   Gamepad2,
   GraduationCap,
-  School
+  School,
+  Wrench
 } from "lucide-react";
 import { 
   Flashcard, 
@@ -94,11 +95,12 @@ import { SubscriptionModal } from "./components/SubscriptionModal";
 import { CornerMascotPopup } from "./components/CornerMascotPopup";
 import { AuthModal } from "./components/AuthModal";
 import { GameModelsSection } from "./components/GameModelsSection";
+import { ToolsSuite, ToolSubtab } from "./components/tools/ToolsSuite";
 import { getCurrentUser, syncAccountData } from "./utils/authStorage";
 import { TRANSLATIONS, LanguageContext, LanguageCode } from "./utils/translations";
 import confetti from "canvas-confetti";
 
-type ActiveTab = "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games";
+type ActiveTab = "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools";
 
 export default function App() {
   // Account & Authentication (100% Optional)
@@ -238,6 +240,7 @@ export default function App() {
       languages: "Idiomas",
       games: "Modelos de Juego",
       analytics: "Progreso a Largo Plazo",
+      tools: "Centro de Herramientas",
     };
 
     const newTab: WorkspaceTab = {
@@ -542,6 +545,7 @@ export default function App() {
     { id: "schedule", label: t.navSchedule || "Horario & Pomodoro", icon: CalendarIcon },
     { id: "languages", label: t.navLanguages || "Idiomas", icon: Languages },
     { id: "games", label: "Juegos IA", icon: Gamepad2, count: 20 },
+    { id: "tools", label: "Herramientas", icon: Wrench, count: 6 },
     { id: "analytics", label: t.navAnalytics || "Progreso a Largo Plazo", icon: TrendingUp },
     { id: "student_portal", label: "Portal Alumno", icon: School, isStudent: true },
     { id: "teacher", label: "Modo Profesores", icon: GraduationCap, isTeacher: true },
@@ -1054,6 +1058,17 @@ export default function App() {
                 flashcards={flashcards}
                 onRewardCarrot={handleRewardCarrots}
                 pet={pet}
+              />
+            )}
+
+            {activeTab === "tools" && (
+              <ToolsSuite
+                initialTool={currentTab.activeToolSubtab || "calculator"}
+                pet={pet}
+                classrooms={teacherClassrooms}
+                notes={notes}
+                onRewardCarrot={handleRewardCarrots}
+                onTuddyCheer={handleTuddyCheer}
               />
             )}
           </motion.div>
