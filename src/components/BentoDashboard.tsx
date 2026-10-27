@@ -16,12 +16,19 @@ import {
   Coffee,
   RotateCw,
   Network,
-  Headphones
+  Headphones,
+  Users,
+  Heart,
+  Swords,
+  MessageCircle
 } from "lucide-react";
-import { ScheduleItem, StudyNote, ExamSession, UserStats, Flashcard, PetCustomization, CustomSubject } from "../types";
-import { AnthropomorphicBunny } from "./AnthropomorphicBunny";
+import { ScheduleItem, StudyNote, ExamSession, UserStats, Flashcard, PetCustomization, CustomSubject, FriendItem } from "../types";
+import { AnthropomorphicBunny, PetAvatar } from "./AnthropomorphicBunny";
 import { DEFAULT_PET, DEFAULT_SUBJECTS } from "../utils/storage";
+import { getStoredFriends } from "../utils/friendsStorage";
 import { useTranslation } from "../utils/translations";
+import { getBentoBackground, getPatternStyle } from "../data/bentoBackgrounds";
+import { BentoBackgroundSelectorModal } from "./BentoBackgroundSelectorModal";
 
 interface BentoDashboardProps {
   schedule: ScheduleItem[];
@@ -30,7 +37,7 @@ interface BentoDashboardProps {
   stats: UserStats;
   flashcards: Flashcard[];
   onNavigate: (
-    tab: "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools",
+    tab: "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools" | "friends",
     title?: string,
     extraData?: Record<string, any>
   ) => void;
@@ -43,6 +50,7 @@ interface BentoDashboardProps {
   onOpenPetCustomizer?: () => void;
   onOpenSubjectManager?: () => void;
   onOpenStudentPortal?: () => void;
+  onSavePet?: (updated: PetCustomization) => void;
 }
 
 export const BentoDashboard: React.FC<BentoDashboardProps> = ({
@@ -61,8 +69,11 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
   onOpenPetCustomizer,
   onOpenSubjectManager,
   onOpenStudentPortal,
+  onSavePet,
 }) => {
   const { t } = useTranslation();
+  const [isBentoBgModalOpen, setIsBentoBgModalOpen] = React.useState(false);
+  const friends = getStoredFriends();
 
   // Pending items today
   const pendingItems = schedule.filter((item) => !item.isCompleted);
@@ -312,87 +323,127 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
         </div>
 
         {/* CARD 2: TUDDY MASCOT HERO BENTO CARD (col-span-4) */}
-        <div className="md:col-span-4 bg-[#FFB7B2] rounded-3xl p-6 flex flex-col items-center justify-center text-center text-white relative shadow-md overflow-hidden min-h-[340px]">
-          {/* Subtle dotted pattern overlay matching Design HTML */}
-          <div 
-            className="absolute top-0 left-0 w-full h-full opacity-15 pointer-events-none" 
-            style={{ backgroundImage: "radial-gradient(#fff 2px, transparent 2px)", backgroundSize: "20px 20px" }}
-          />
+        {(() => {
+          const bentoBgConfig = getBentoBackground(pet.bentoBackground || "classic_peach");
+          const isCustomBg = pet.bentoBackground === "custom";
+          const cardStyle: React.CSSProperties = isCustomBg
+            ? { background: `linear-gradient(135deg, ${pet.bentoCustomColor || "#FFB7B2"}, ${pet.bentoCustomColor2 || "#B2E2F2"})` }
+            : bentoBgConfig.style || {};
+          const isDarkText = (pet.bentoTextColor || bentoBgConfig.textColor) === "dark";
+          const textColor = isDarkText ? "text-slate-900" : "text-white";
+          const pillBg = isDarkText ? "bg-slate-900/10 text-slate-900 border border-slate-900/15" : "bg-white/25 text-white";
+          const buttonBg = isDarkText
+            ? "bg-slate-900 text-white hover:bg-slate-800"
+            : "bg-white text-[#FFB7B2] hover:bg-[#FAF6F0]";
 
-          <div 
-            onClick={onOpenMascotModal}
-            className="w-36 h-36 bg-white/95 rounded-full flex items-center justify-center mb-4 shadow-inner relative cursor-pointer hover:scale-105 transition-transform group p-2 border-2 border-white"
-            title={`Hablar con ${pet.name}`}
-          >
-            <AnthropomorphicBunny
-              pet={pet}
-              mood="cheering"
-              size="md"
-              isBouncing={false}
-              showShadow={false}
-            />
-            <div className="absolute -top-1 -right-1 bg-yellow-300 text-[#4A4A4A] px-2 py-0.5 rounded-xl rotate-12 text-[10px] font-black border-2 border-white shadow-xs group-hover:rotate-6 transition-transform">
-              TUDDY!
-            </div>
-          </div>
+          return (
+            <div 
+              className={`md:col-span-4 rounded-3xl p-6 flex flex-col items-center justify-center text-center relative shadow-md overflow-hidden min-h-[340px] border-2 transition-all ${
+                isCustomBg ? "border-white/40" : `${bentoBgConfig.bgClass} ${bentoBgConfig.accentBorder}`
+              } ${textColor}`}
+              style={cardStyle}
+            >
+              {/* Texture/Pattern overlay */}
+              <div 
+                className="absolute inset-0 pointer-events-none opacity-20" 
+                style={getPatternStyle(pet.bentoPattern || bentoBgConfig.defaultPattern, isDarkText)}
+              />
 
-          <div className="flex items-center gap-1.5 mb-1">
-            <h3 className="text-2xl font-black tracking-tight font-heading">{pet.name}</h3>
-            {onOpenPetCustomizer && (
+              {/* Quick Action: Cambiar Fondo button in top-right */}
               <button
                 type="button"
-                onClick={onOpenPetCustomizer}
-                title={t.customizePet || "Personalizar mascota"}
-                className="bg-white/20 hover:bg-white/30 text-white rounded-full p-1 transition-colors cursor-pointer"
+                onClick={() => setIsBentoBgModalOpen(true)}
+                className={`absolute top-3.5 right-3.5 px-3 py-1.5 rounded-full text-xs font-black backdrop-blur-md border flex items-center gap-1.5 shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer z-20 ${
+                  isDarkText 
+                    ? "bg-black/10 hover:bg-black/15 text-slate-900 border-black/20" 
+                    : "bg-white/20 hover:bg-white/30 text-white border-white/40"
+                }`}
+                title="Cambiar fondo del Bento"
               >
                 <Palette className="w-3.5 h-3.5" />
+                <span>Fondo</span>
               </button>
-            )}
-          </div>
 
-          <div className="inline-block bg-white/25 backdrop-blur-xs text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider mb-2">
-            {t.petMascot || "Compañero"} {pet.personality === "enthusiastic" ? "🔥" : pet.personality === "calm_wise" ? "🍃" : "⚡"}
-          </div>
-
-          <p className="text-xs font-medium opacity-95 leading-relaxed mb-4 px-2">
-            {pet.personality === "enthusiastic"
-              ? `${stats.quizzesCompleted} ${t.examsTitle.toLowerCase()} • ${stats.cardsMastered} ${t.masteredCards.toLowerCase()}`
-              : pet.personality === "calm_wise"
-              ? `${t.tagline}`
-              : `🥕 ${stats.carrotCoins} ${t.carrots}`}
-          </p>
-          
-          <div className="flex flex-col w-full gap-2 z-10">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onNavigate("flashcards")}
-                className="bg-white text-[#FFB7B2] hover:bg-[#FAF6F0] font-black py-2.5 px-3 rounded-2xl shadow-sm active:scale-95 transition-all text-xs cursor-pointer"
+              <div 
+                onClick={onOpenMascotModal}
+                className="w-36 h-36 bg-white/95 rounded-full flex items-center justify-center mb-4 shadow-inner relative cursor-pointer hover:scale-105 transition-transform group p-2 border-2 border-white"
+                title={`Hablar con ${pet.name}`}
               >
-                {t.studyMode || "Estudiar Fichas"}
-              </button>
+                <AnthropomorphicBunny
+                  pet={pet}
+                  mood="cheering"
+                  size="md"
+                  isBouncing={false}
+                  showShadow={false}
+                />
+                <div className="absolute -top-1 -right-1 bg-yellow-300 text-[#4A4A4A] px-2 py-0.5 rounded-xl rotate-12 text-[10px] font-black border-2 border-white shadow-xs group-hover:rotate-6 transition-transform">
+                  TUDDY!
+                </div>
+              </div>
 
-              {onOpenPetCustomizer && (
+              <div className="flex items-center gap-1.5 mb-1">
+                <h3 className="text-2xl font-black tracking-tight font-heading">{pet.name}</h3>
                 <button
                   type="button"
-                  onClick={onOpenPetCustomizer}
-                  className="bg-white/25 hover:bg-white/35 text-white font-bold py-2.5 px-3 rounded-2xl border border-white/40 active:scale-95 transition-all text-xs flex items-center justify-center gap-1 cursor-pointer"
+                  onClick={() => setIsBentoBgModalOpen(true)}
+                  title="Cambiar fondo de Tuddy"
+                  className={`rounded-full p-1.5 transition-colors cursor-pointer ${
+                    isDarkText ? "bg-black/10 hover:bg-black/20 text-slate-800" : "bg-white/20 hover:bg-white/30 text-white"
+                  }`}
                 >
                   <Palette className="w-3.5 h-3.5" />
-                  <span>{t.customizePet || "Personalizar"}</span>
                 </button>
-              )}
-            </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={onOpenMascotModal}
-              className="text-xs text-white/90 hover:text-white font-bold underline decoration-white/40 pt-1 cursor-pointer"
-            >
-              🥕 {stats.carrotCoins} {t.carrots}
-            </button>
-          </div>
-        </div>
+              <div className={`inline-block backdrop-blur-xs text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider mb-2 ${pillBg}`}>
+                {t.petMascot || "Compañero"} {pet.personality === "enthusiastic" ? "🔥" : pet.personality === "calm_wise" ? "🍃" : "⚡"}
+              </div>
+
+              <p className="text-xs font-medium opacity-95 leading-relaxed mb-4 px-2">
+                {pet.personality === "enthusiastic"
+                  ? `${stats.quizzesCompleted} ${t.examsTitle.toLowerCase()} • ${stats.cardsMastered} ${t.masteredCards.toLowerCase()}`
+                  : pet.personality === "calm_wise"
+                  ? `${t.tagline}`
+                  : `🥕 ${stats.carrotCoins} ${t.carrots}`}
+              </p>
+              
+              <div className="flex flex-col w-full gap-2 z-10">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("flashcards")}
+                    className={`${buttonBg} font-black py-2.5 px-3 rounded-2xl shadow-sm active:scale-95 transition-all text-xs cursor-pointer`}
+                  >
+                    {t.studyMode || "Estudiar Fichas"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBentoBgModalOpen(true)}
+                    className={`font-bold py-2.5 px-3 rounded-2xl border active:scale-95 transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isDarkText
+                        ? "bg-black/10 hover:bg-black/15 text-slate-900 border-black/20"
+                        : "bg-white/25 hover:bg-white/35 text-white border-white/40"
+                    }`}
+                  >
+                    <Palette className="w-3.5 h-3.5" />
+                    <span>Cambiar Fondo</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onOpenMascotModal}
+                  className={`text-xs font-bold underline pt-1 cursor-pointer ${
+                    isDarkText ? "text-slate-800 hover:text-black decoration-slate-400" : "text-white/90 hover:text-white decoration-white/40"
+                  }`}
+                >
+                  🥕 {stats.carrotCoins} {t.carrots}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* CARD 3: EXÁMENES SIMULADOS BENTO CARD (col-span-4) */}
         <div className="md:col-span-4 bg-white rounded-3xl p-6 border-2 border-[#E8E2D9] shadow-sm flex flex-col justify-between">
@@ -744,7 +795,85 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({
           </div>
         </div>
 
+        {/* CARD 8: RED DE ESTUDIO & COMPAÑEROS BENTO CARD (col-span-12) */}
+        <div className="md:col-span-12 bg-white rounded-3xl p-6 border-2 border-[#E8E2D9] shadow-sm flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center">
+                <Users className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black tracking-tight text-[#4A4A4A]">
+                    Tuddy Amigos & Red de Estudio
+                  </h3>
+                  <span className="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-bold">
+                    {friends.length} Compañeros
+                  </span>
+                </div>
+                <p className="text-xs text-[#7A7A7A]">
+                  Visita las habitaciones de sus mascotas Bento, chatea, envíales post-its y rétalos a duelos amistosos.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onNavigate("friends", "Amigos & Red Social")}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+            >
+              <span>Abrir Red de Amigos</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+            {friends.slice(0, 4).map((friend) => (
+              <div
+                key={friend.id}
+                onClick={() => onNavigate("friends", "Amigos & Red Social", { activeFriendId: friend.id, activeFriendSubtab: "pet" })}
+                className="p-3.5 rounded-2xl bg-[#FAF6EE] border border-[#E8E2D9] hover:border-purple-300 hover:bg-purple-50/50 transition-all cursor-pointer flex items-center justify-between group shadow-2xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-[#E8E2D9] flex items-center justify-center overflow-hidden p-0.5">
+                      <PetAvatar pet={friend.pet} size="xs" />
+                    </div>
+                    <span className={`w-2.5 h-2.5 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white ${
+                      friend.status === "studying" ? "bg-purple-500" : friend.status === "online" ? "bg-emerald-500" : "bg-amber-400"
+                    }`} />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-slate-800 truncate group-hover:text-purple-950">
+                      {friend.name}
+                    </h4>
+                    <span className="text-[10px] text-purple-700 font-bold block truncate">
+                      🐰 {friend.pet.name}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs font-bold text-amber-600">
+                  <span>🥕 {friend.carrotCoins}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
+
+      {/* Bento Background Customizer Modal */}
+      <BentoBackgroundSelectorModal
+        isOpen={isBentoBgModalOpen}
+        onClose={() => setIsBentoBgModalOpen(false)}
+        pet={pet}
+        onSavePet={(updated) => {
+          if (onSavePet) {
+            onSavePet(updated);
+          }
+        }}
+      />
     </div>
   );
 };

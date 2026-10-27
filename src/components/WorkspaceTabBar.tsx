@@ -16,7 +16,8 @@ import {
   Gamepad2,
   Sparkles,
   BrainCircuit,
-  Wrench
+  Wrench,
+  Users
 } from "lucide-react";
 import { WorkspaceTab, PetCustomization } from "../types";
 import { PetAvatar } from "./AnthropomorphicBunny";
@@ -61,6 +62,7 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
       case "analytics": return t.navAnalytics || tab.title;
       case "games": return "Juegos IA (20 Modelos)";
       case "tools": return tab.title || "Herramientas";
+      case "friends": return "Amigos";
       default: return tab.title;
     }
   };
@@ -102,6 +104,8 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
         return <Gamepad2 className="w-3.5 h-3.5 text-amber-500" />;
       case "tools":
         return <Wrench className="w-3.5 h-3.5 text-indigo-600" />;
+      case "friends":
+        return <Users className="w-3.5 h-3.5 text-purple-600" />;
       default:
         return <LayoutGrid className="w-3.5 h-3.5 text-stone-600" />;
     }
@@ -354,6 +358,28 @@ export const WorkspaceTabBar: React.FC<WorkspaceTabBarProps> = ({
                   </div>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-900 font-black">
                     6 en 1
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenNewTab("friends", "Amigos & Red Social");
+                    setIsNewMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-purple-950 bg-purple-50/70 hover:bg-purple-100 transition-colors text-left border border-purple-200/70 mt-1"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-purple-600 flex items-center justify-center text-white">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-purple-950 leading-tight">Amigos & Red Social</div>
+                      <p className="text-[9px] text-purple-700/80 font-normal">Mascotas Bento, Chat, Duelos, Pomodoro Dúo</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-200 text-purple-900 font-black">
+                    Comunidad
                   </span>
                 </button>
 

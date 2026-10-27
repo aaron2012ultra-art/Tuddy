@@ -12,7 +12,9 @@ import {
   Compass, 
   ShoppingBag,
   Search,
-  CheckCircle2
+  CheckCircle2,
+  Grid,
+  Paintbrush
 } from "lucide-react";
 import { 
   PetCustomization, 
@@ -23,6 +25,12 @@ import {
 } from "../types";
 import { AnthropomorphicBunny } from "./AnthropomorphicBunny";
 import { CLOTHING_ITEMS } from "../data/clothingItems";
+import { 
+  BENTO_BACKGROUND_OPTIONS, 
+  BENTO_PATTERNS, 
+  getBentoBackground, 
+  getPatternStyle 
+} from "../data/bentoBackgrounds";
 import confetti from "canvas-confetti";
 
 interface PetCustomizerModalProps {
@@ -34,6 +42,7 @@ interface PetCustomizerModalProps {
   onRewardCarrot?: (delta: number) => void;
   isPro?: boolean;
   onOpenSubscriptionModal?: () => void;
+  initialTab?: "wardrobe" | "personality" | "appearance" | "accessories" | "bento_bg";
 }
 
 const FUR_OPTIONS: Array<{ id: RabbitFurColor; label: string; bg: string; border: string; isPro?: boolean; desc?: string }> = [
@@ -121,8 +130,11 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
   onRewardCarrot,
   isPro = false,
   onOpenSubscriptionModal,
+  initialTab = "wardrobe",
 }) => {
-  const [activeTab, setActiveTab] = useState<"wardrobe" | "personality" | "appearance" | "accessories">("wardrobe");
+  const [activeTab, setActiveTab] = useState<"wardrobe" | "personality" | "appearance" | "accessories" | "bento_bg">(
+    initialTab
+  );
   
   // Staged customization state
   const [name, setName] = useState(pet.name);
@@ -133,6 +145,15 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
   const [unlockedOutfits, setUnlockedOutfits] = useState<string[]>(
     pet.unlockedOutfits && pet.unlockedOutfits.length > 0 ? pet.unlockedOutfits : ["school_vest"]
   );
+  // Bento Background state
+  const [bentoBackground, setBentoBackground] = useState<string>(pet.bentoBackground || "classic_peach");
+  const [bentoPattern, setBentoPattern] = useState<"dots" | "grid" | "stars" | "stripes" | "waves" | "none">(
+    (pet.bentoPattern as any) || "dots"
+  );
+  const [bentoCustomColor, setBentoCustomColor] = useState<string>(pet.bentoCustomColor || "#FFB7B2");
+  const [bentoCustomColor2, setBentoCustomColor2] = useState<string>(pet.bentoCustomColor2 || "#B2E2F2");
+  const [bentoTextColor, setBentoTextColor] = useState<"white" | "dark">(pet.bentoTextColor || "white");
+  const [bentoBgCategory, setBentoBgCategory] = useState<string>("all");
 
   // Clothing store filters
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -142,15 +163,23 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
   // Synchronize with external changes
   useEffect(() => {
     if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
       setName(pet.name);
       setPersonality(pet.personality);
       setFurColor(pet.furColor);
       setAccessory(pet.accessory);
       setOutfit(pet.outfit);
       setUnlockedOutfits(pet.unlockedOutfits && pet.unlockedOutfits.length > 0 ? pet.unlockedOutfits : ["school_vest"]);
+      setBentoBackground(pet.bentoBackground || "classic_peach");
+      setBentoPattern((pet.bentoPattern as any) || "dots");
+      setBentoCustomColor(pet.bentoCustomColor || "#FFB7B2");
+      setBentoCustomColor2(pet.bentoCustomColor2 || "#B2E2F2");
+      setBentoTextColor(pet.bentoTextColor || "white");
       setPurchaseNotice(null);
     }
-  }, [isOpen, pet]);
+  }, [isOpen, pet, initialTab]);
 
   if (!isOpen) return null;
 
@@ -161,7 +190,19 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
     accessory,
     outfit,
     unlockedOutfits,
+    bentoBackground,
+    bentoPattern,
+    bentoCustomColor,
+    bentoCustomColor2,
+    bentoTextColor,
+    bentoBoardTheme: pet.bentoBoardTheme || "default",
   };
+
+  const activeBentoBg = getBentoBackground(bentoBackground);
+  const isCustomBentoBg = bentoBackground === "custom";
+  const sidebarCardStyle: React.CSSProperties = isCustomBentoBg
+    ? { background: `linear-gradient(135deg, ${bentoCustomColor}, ${bentoCustomColor2})` }
+    : activeBentoBg.style || {};
 
   const handleSave = () => {
     onSavePet(currentPreviewPet);
@@ -289,14 +330,33 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 flex-1 min-h-0 pt-3 overflow-hidden">
           
           {/* SIDEBAR: Live Mascot Preview */}
-          <div className="sm:w-56 md:w-60 shrink-0 flex sm:flex-col items-center justify-between sm:justify-start gap-3 p-3.5 sm:p-4 rounded-3xl bg-gradient-to-b from-[#FFF9F5] to-[#FDF4EE] border-2 border-[#FFE8DC] shadow-xs">
-            <div className="text-left sm:text-center w-full">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#FF9AA2]">Vista en Vivo</span>
-              <h3 className="text-sm font-black text-[#4A4A4A] truncate">{currentPreviewPet.name}</h3>
+          <div 
+            className={`sm:w-56 md:w-60 shrink-0 flex sm:flex-col items-center justify-between sm:justify-start gap-3 p-3.5 sm:p-4 rounded-3xl border-2 shadow-xs transition-all relative overflow-hidden ${
+              isCustomBentoBg ? "border-white/40" : `${activeBentoBg.bgClass} ${activeBentoBg.accentBorder}`
+            }`}
+            style={sidebarCardStyle}
+          >
+            {/* Pattern overlay */}
+            <div 
+              className="absolute inset-0 pointer-events-none opacity-20"
+              style={getPatternStyle(bentoPattern, bentoTextColor === "dark" || activeBentoBg.textColor === "dark")}
+            />
+
+            <div className="text-left sm:text-center w-full z-10">
+              <span className={`text-[10px] font-black uppercase tracking-wider ${
+                bentoTextColor === "dark" || activeBentoBg.textColor === "dark" ? "text-slate-800" : "text-white/80"
+              }`}>
+                Vista en Vivo
+              </span>
+              <h3 className={`text-sm font-black truncate ${
+                bentoTextColor === "dark" || activeBentoBg.textColor === "dark" ? "text-slate-900" : "text-white"
+              }`}>
+                {currentPreviewPet.name}
+              </h3>
             </div>
 
             {/* Bunny SVG */}
-            <div className="shrink-0 flex items-center justify-center my-1">
+            <div className="shrink-0 flex items-center justify-center my-1 z-10 bg-white/95 p-2 rounded-full border border-white shadow-inner">
               <AnthropomorphicBunny
                 pet={currentPreviewPet}
                 size="md"
@@ -306,15 +366,17 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
             </div>
 
             {/* Current details */}
-            <div className="w-full text-right sm:text-center space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-[#E8E2D9] text-[11px] font-bold text-[#4A4A4A] shadow-2xs">
+            <div className="w-full text-right sm:text-center space-y-1 z-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/95 backdrop-blur-xs border border-white/50 text-[11px] font-bold text-[#4A4A4A] shadow-2xs">
                 <span>Traje:</span>
                 <span className="text-[#0284C7] max-w-[120px] truncate">
                   {currentOutfitObj.name}
                 </span>
               </div>
-              <div className="text-[10px] text-[#7A7A7A] block truncate">
-                {currentOutfitObj.iconEmoji} {currentOutfitObj.category}
+              <div className={`text-[10px] block truncate font-medium ${
+                bentoTextColor === "dark" || activeBentoBg.textColor === "dark" ? "text-slate-700" : "text-white/90"
+              }`}>
+                Fondo: {isCustomBentoBg ? "Personalizado" : activeBentoBg.name}
               </div>
             </div>
           </div>
@@ -334,6 +396,19 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
               >
                 <ShoppingBag className="h-3.5 w-3.5" />
                 <span>Tienda de Ropa (50) 🥕</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("bento_bg")}
+                className={`inline-flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "bento_bg"
+                    ? "bg-[#FFB7B2] text-white shadow-xs"
+                    : "bg-[#FDFBF7] text-[#4A4A4A] border border-[#E8E2D9] hover:bg-white"
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <span>Fondo de Bento 🎨</span>
               </button>
 
               <button
@@ -527,7 +602,195 @@ export const PetCustomizerModal: React.FC<PetCustomizerModalProps> = ({
                 </div>
               )}
 
-              {/* TAB 2: FUR COLOR */}
+              {/* TAB 2: BENTO DASHBOARD BACKGROUND */}
+              {activeTab === "bento_bg" && (
+                <div className="space-y-4">
+                  {/* Category Filter Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    {[
+                      { id: "all", label: "Todos los Fondos" },
+                      { id: "pastel", label: "🌸 Pastel" },
+                      { id: "gradient", label: "🎨 Degradados" },
+                      { id: "dark", label: "🌙 Nocturnos" },
+                      { id: "fun", label: "✨ Temáticos" },
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setBentoBgCategory(cat.id)}
+                        className={`text-xs px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                          bentoBgCategory === cat.id
+                            ? "bg-[#FFB7B2] text-white shadow-2xs"
+                            : "bg-white text-[#7A7A7A] hover:bg-[#FAF6F0] border border-[#E8E2D9]"
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Preset Backgrounds Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {BENTO_BACKGROUND_OPTIONS.filter(
+                      (bg) => bentoBgCategory === "all" || bg.category === bentoBgCategory
+                    ).map((bg) => {
+                      const isSelected = bentoBackground === bg.id;
+                      const isLocked = bg.isPro && !isPro;
+
+                      return (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          onClick={() => {
+                            if (isLocked) {
+                              onOpenSubscriptionModal?.();
+                              return;
+                            }
+                            setBentoBackground(bg.id);
+                            setBentoPattern(bg.defaultPattern);
+                            setBentoTextColor(bg.textColor);
+                          }}
+                          className={`flex flex-col text-left p-3 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden group ${
+                            isSelected
+                              ? "border-[#FFB7B2] ring-2 ring-[#FFB7B2]/40 shadow-xs"
+                              : "border-[#E8E2D9] hover:border-[#FFB7B2]/60 bg-white"
+                          }`}
+                        >
+                          {/* Mini visual swatch banner */}
+                          <div
+                            className={`w-full h-14 rounded-xl mb-2.5 relative overflow-hidden flex items-center justify-center ${bg.bgClass}`}
+                            style={bg.style}
+                          >
+                            <div
+                              className="absolute inset-0 opacity-20 pointer-events-none"
+                              style={getPatternStyle(bg.defaultPattern, bg.textColor === "dark")}
+                            />
+                            <span className="text-xl relative z-10">{bg.icon}</span>
+
+                            {isSelected && (
+                              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-white text-emerald-600 flex items-center justify-center text-xs font-black shadow-xs">
+                                ✓
+                              </div>
+                            )}
+
+                            {isLocked && (
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                <span className="bg-amber-400 text-amber-950 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                  👑 Plus
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#4A4A4A] truncate">{bg.name}</span>
+                            {bg.isPro && (
+                              <span className="text-[10px] text-amber-600 font-black">PRO</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-[#7A7A7A] truncate">{bg.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Gradient Builder */}
+                  {bentoBackground === "custom" && (
+                    <div className="bg-white p-4 rounded-2xl border-2 border-[#E8E2D9] space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Paintbrush className="w-4 h-4 text-[#FFB7B2]" />
+                        <h4 className="text-xs font-bold text-[#4A4A4A]">Configurar Degradado Personalizado</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#7A7A7A] mb-1">Color de Inicio:</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={bentoCustomColor}
+                              onChange={(e) => setBentoCustomColor(e.target.value)}
+                              className="w-9 h-9 rounded-xl border border-[#E8E2D9] cursor-pointer p-0.5"
+                            />
+                            <span className="text-xs font-mono font-bold text-[#4A4A4A]">{bentoCustomColor}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#7A7A7A] mb-1">Color Final:</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={bentoCustomColor2}
+                              onChange={(e) => setBentoCustomColor2(e.target.value)}
+                              className="w-9 h-9 rounded-xl border border-[#E8E2D9] cursor-pointer p-0.5"
+                            />
+                            <span className="text-xs font-mono font-bold text-[#4A4A4A]">{bentoCustomColor2}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#7A7A7A] mb-1">Color de Texto:</label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setBentoTextColor("white")}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                              bentoTextColor === "white"
+                                ? "bg-slate-900 text-white border-slate-900"
+                                : "bg-white text-slate-700 border-[#E8E2D9]"
+                            }`}
+                          >
+                            Texto Blanco (para fondos oscuros)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBentoTextColor("dark")}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                              bentoTextColor === "dark"
+                                ? "bg-[#FFB7B2] text-white border-[#FFB7B2]"
+                                : "bg-white text-slate-700 border-[#E8E2D9]"
+                            }`}
+                          >
+                            Texto Oscuro (para fondos claros)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pattern & Texture Selector */}
+                  <div className="bg-white p-4 rounded-2xl border-2 border-[#E8E2D9] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-[#4A4A4A]">Textura y Trama Decorativa:</label>
+                      <span className="text-[10px] text-[#7A7A7A]">Se aplica sobre el fondo elegido</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {BENTO_PATTERNS.map((pt) => {
+                        const isPatternSelected = bentoPattern === pt.id;
+                        return (
+                          <button
+                            key={pt.id}
+                            type="button"
+                            onClick={() => setBentoPattern(pt.id as any)}
+                            className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                              isPatternSelected
+                                ? "border-[#FFB7B2] bg-[#FFF8E6] text-[#FF9AA2] font-bold shadow-2xs"
+                                : "border-[#E8E2D9] hover:bg-[#FAF6F0] text-[#7A7A7A]"
+                            }`}
+                          >
+                            <span className="text-base">{pt.icon}</span>
+                            <span className="text-[10px] font-bold truncate w-full">{pt.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: FUR COLOR */}
               {activeTab === "appearance" && (
                 <div className="bg-white p-4 rounded-2xl border-2 border-[#E8E2D9] space-y-3">
                   <div className="flex items-center justify-between">

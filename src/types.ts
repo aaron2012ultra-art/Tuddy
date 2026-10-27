@@ -8,11 +8,12 @@ export type AppTab =
   | "language_learning"
   | "games"
   | "analytics"
-  | "tools";
+  | "tools"
+  | "friends";
 
 export interface WorkspaceTab {
   id: string;
-  type: "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools";
+  type: "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools" | "friends";
   title: string;
   subtitle?: string;
   closable: boolean;
@@ -24,6 +25,8 @@ export interface WorkspaceTab {
   examQuestions?: ExamQuestion[];
   autoStartExam?: boolean;
   activeToolSubtab?: "calculator" | "pomodoro" | "wheel" | "mindmap" | "diploma" | "audio";
+  activeFriendId?: string;
+  activeFriendSubtab?: "list" | "pet" | "chat" | "battle" | "study_room" | "leaderboard";
 }
 
 export interface Flashcard {
@@ -301,6 +304,81 @@ export interface PetCustomization {
   outfit: RabbitOutfit;
   glasses?: string;
   unlockedOutfits?: string[];
+  bentoBackground?: string; // ID of preset e.g. "classic_peach", "mint_garden", "cosmic_galaxy", "custom", etc.
+  bentoPattern?: "dots" | "grid" | "stars" | "stripes" | "waves" | "none";
+  bentoCustomColor?: string; // Hex color 1
+  bentoCustomColor2?: string; // Hex color 2 for gradient
+  bentoTextColor?: "white" | "dark";
+  bentoBoardTheme?: string; // Overall bento board theme
+}
+
+export interface FriendStickyNote {
+  id: string;
+  authorName: string;
+  authorAvatar?: string;
+  text: string;
+  color: "yellow" | "pink" | "blue" | "green" | "purple";
+  createdAt: string;
+}
+
+export interface FriendInteraction {
+  id: string;
+  type: "pet" | "carrot" | "highfive" | "study_together" | "battle" | "sticky_note";
+  fromUser: string;
+  timestamp: string;
+  message?: string;
+  carrotsGifted?: number;
+}
+
+export interface FriendItem {
+  id: string;
+  friendCode: string;
+  name: string;
+  avatarEmoji: string;
+  bio: string;
+  status: "online" | "studying" | "away" | "offline";
+  currentActivity: string;
+  streakDays: number;
+  level: number;
+  carrotCoins: number;
+  cardsMastered: number;
+  studyMinutesToday: number;
+  favoriteSubject: string;
+  pet: PetCustomization;
+  friendshipLevel: number; // 1 to 5
+  affinityPoints: number; // 0 to 100 per level
+  petPettedToday: boolean;
+  carrotsGiftedToday: number;
+  stickyNotes: FriendStickyNote[];
+  joinedDate: string;
+  isFavorite?: boolean;
+}
+
+export interface FriendMessage {
+  id: string;
+  friendId: string;
+  sender: "me" | "friend";
+  text: string;
+  timestamp: string;
+  sticker?: string;
+  sharedDeck?: {
+    deckId: string;
+    name: string;
+    cardCount: number;
+    subject: string;
+  };
+  sharedNote?: {
+    noteId: string;
+    title: string;
+    summary: string;
+  };
+  battleInvite?: {
+    subject: string;
+    questionCount: number;
+    status: "pending" | "completed";
+    scoreMe?: number;
+    scoreFriend?: number;
+  };
 }
 
 export interface CustomSubject {

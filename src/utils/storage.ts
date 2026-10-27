@@ -108,6 +108,10 @@ export const DEFAULT_PET: PetCustomization = {
   accessory: "study_glasses",
   outfit: "school_vest",
   unlockedOutfits: ["school_vest"],
+  bentoBackground: "classic_peach",
+  bentoPattern: "dots",
+  bentoTextColor: "white",
+  bentoBoardTheme: "default",
 };
 
 // Start with 0 subjects - the user defines their own subjects

@@ -20,7 +20,8 @@ import {
   Gamepad2,
   GraduationCap,
   School,
-  Wrench
+  Wrench,
+  Users
 } from "lucide-react";
 import { 
   Flashcard, 
@@ -96,11 +97,12 @@ import { CornerMascotPopup } from "./components/CornerMascotPopup";
 import { AuthModal } from "./components/AuthModal";
 import { GameModelsSection } from "./components/GameModelsSection";
 import { ToolsSuite, ToolSubtab } from "./components/tools/ToolsSuite";
+import { FriendsModule } from "./components/friends/FriendsModule";
 import { getCurrentUser, syncAccountData } from "./utils/authStorage";
 import { TRANSLATIONS, LanguageContext, LanguageCode } from "./utils/translations";
 import confetti from "canvas-confetti";
 
-type ActiveTab = "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools";
+type ActiveTab = "bento" | "flashcards" | "notes" | "tutor" | "exams" | "schedule" | "languages" | "analytics" | "games" | "tools" | "friends";
 
 export default function App() {
   // Account & Authentication (100% Optional)
@@ -241,6 +243,7 @@ export default function App() {
       games: "Modelos de Juego",
       analytics: "Progreso a Largo Plazo",
       tools: "Centro de Herramientas",
+      friends: "Amigos & Red Social",
     };
 
     const newTab: WorkspaceTab = {
@@ -255,6 +258,8 @@ export default function App() {
       customTopic: extraData?.customTopic,
       examQuestions: extraData?.examQuestions,
       autoStartExam: extraData?.autoStartExam,
+      activeFriendId: extraData?.activeFriendId,
+      activeFriendSubtab: extraData?.activeFriendSubtab,
     };
 
     setWorkspaceTabs((prev) => [...prev, newTab]);
@@ -546,6 +551,7 @@ export default function App() {
     { id: "languages", label: t.navLanguages || "Idiomas", icon: Languages },
     { id: "games", label: "Juegos IA", icon: Gamepad2, count: 20 },
     { id: "tools", label: "Herramientas", icon: Wrench, count: 6 },
+    { id: "friends", label: "Amigos", icon: Users },
     { id: "analytics", label: t.navAnalytics || "Progreso a Largo Plazo", icon: TrendingUp },
     { id: "student_portal", label: "Portal Alumno", icon: School, isStudent: true },
     { id: "teacher", label: "Modo Profesores", icon: GraduationCap, isTeacher: true },
@@ -805,6 +811,21 @@ export default function App() {
                 <span>{t.subjects || "Materias"} ({subjects.length})</span>
               </button>
 
+              {/* Friends Quick Button */}
+              <button
+                type="button"
+                onClick={() => handleOpenTab("friends", "Amigos & Red Social")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+                  activeTab === "friends"
+                    ? "bg-purple-600 text-white border-purple-700 shadow-xs"
+                    : "bg-white border-[#E8E2D9] text-[#4A4A4A] hover:bg-purple-50 hover:text-purple-900"
+                }`}
+                title="Amigos & Red de Estudio (Comunidad, Mascotas, Chat y Duelos)"
+              >
+                <Users className={`w-3.5 h-3.5 ${activeTab === "friends" ? "text-white" : "text-purple-600"}`} />
+                <span className="hidden sm:inline">Amigos</span>
+              </button>
+
               {/* Pet Customizer Quick Button */}
               <button
                 type="button"
@@ -940,6 +961,7 @@ export default function App() {
                 onOpenPetCustomizer={() => setIsPetCustomizerOpen(true)}
                 onOpenSubjectManager={() => setIsSubjectManagerOpen(true)}
                 onOpenStudentPortal={() => setIsStudentPortalActive(true)}
+                onSavePet={handleUpdatePet}
               />
             )}
 
@@ -1069,6 +1091,19 @@ export default function App() {
                 notes={notes}
                 onRewardCarrot={handleRewardCarrots}
                 onTuddyCheer={handleTuddyCheer}
+              />
+            )}
+
+            {activeTab === "friends" && (
+              <FriendsModule
+                userPet={pet}
+                userStats={stats}
+                decks={decks}
+                notes={notes}
+                onRewardCarrot={handleRewardCarrots}
+                onTuddyCheer={handleTuddyCheer}
+                initialFriendId={currentTab.activeFriendId}
+                initialSubtab={currentTab.activeFriendSubtab}
               />
             )}
           </motion.div>

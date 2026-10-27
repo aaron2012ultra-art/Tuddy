@@ -16,6 +16,30 @@ export interface TranslationStrings {
   navSchedule: string;
   navLanguages: string;
   navAnalytics: string;
+  navGames?: string;
+  navTools?: string;
+  navFriends?: string;
+  studentPortal?: string;
+  teacherMode?: string;
+  chatIa?: string;
+  installApp?: string;
+  installAppDesc?: string;
+  installedPwa?: string;
+  iosInstallGuideTitle?: string;
+  changeBackground?: string;
+  background?: string;
+  toolsSuite?: string;
+  toolsSuiteSub?: string;
+  openSuite?: string;
+  studentPortalBannerTitle?: string;
+  studentPortalBannerSub?: string;
+  studentPortalBannerBtn?: string;
+  tuddyAciBannerTitle?: string;
+  tuddyAciBannerSub?: string;
+  tuddyAciBannerBadge?: string;
+  gamesBannerTitle?: string;
+  gamesBannerSub?: string;
+  gamesBannerBadge?: string;
   subjects: string;
   petMascot: string;
   carrots: string;
@@ -281,6 +305,30 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     navSchedule: "Horario & Pomodoro",
     navLanguages: "Idiomas",
     navAnalytics: "Progreso a Largo Plazo",
+    navGames: "Juegos IA",
+    navTools: "Herramientas",
+    navFriends: "Amigos",
+    studentPortal: "Portal Alumno",
+    teacherMode: "Profesores",
+    chatIa: "Chat IA",
+    installApp: "Instalar App",
+    installAppDesc: "Úsala como una app nativa en tu celular o PC",
+    installedPwa: "App Instalada",
+    iosInstallGuideTitle: "Instalación en iPhone / iPad",
+    changeBackground: "Cambiar Fondo",
+    background: "Fondo",
+    toolsSuite: "Centro de Herramientas de Estudio & Aula",
+    toolsSuiteSub: "Calculadora científica, pomodoro con sonidos, ruleta de participación, mapas conceptuales y diplomas.",
+    openSuite: "Abrir Suite Completa",
+    studentPortalBannerTitle: "Portal del Estudiante • Tu Salón Escolar",
+    studentPortalBannerSub: "Revisa las tareas del profesor, entrega tus soluciones, consulta tu récord diario de asistencia y tus notas.",
+    studentPortalBannerBtn: "Entrar a mi Salón con Código",
+    tuddyAciBannerTitle: "Tuddy Advanced Chat Intelligence",
+    tuddyAciBannerSub: "Explicaciones profundas, tablas, nemotécnicas y órdenes académicas específicas.",
+    tuddyAciBannerBadge: "Chat IA Avanzado",
+    gamesBannerTitle: "Juegos IA por Materia y Tema",
+    gamesBannerSub: "Tuddy AI adapta cualquiera de los 20 juegos interactivos al tema que desees repasar.",
+    gamesBannerBadge: "Juegos Adaptativos",
     subjects: "Materias",
     petMascot: "Compañero",
     carrots: "Zanahorias",
@@ -533,6 +581,30 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     navSchedule: "Schedule & Pomodoro",
     navLanguages: "Languages",
     navAnalytics: "Long-Term Analytics",
+    navGames: "AI Games",
+    navTools: "Tools",
+    navFriends: "Friends",
+    studentPortal: "Student Portal",
+    teacherMode: "Teachers",
+    chatIa: "AI Chat",
+    installApp: "Install App",
+    installAppDesc: "Use it as a native app on your phone or PC",
+    installedPwa: "App Installed",
+    iosInstallGuideTitle: "Install on iPhone / iPad",
+    changeBackground: "Change Background",
+    background: "Background",
+    toolsSuite: "Study & Classroom Tools Suite",
+    toolsSuiteSub: "Scientific calculator, ambient pomodoro, participation wheel, mind maps and certificates.",
+    openSuite: "Open Full Suite",
+    studentPortalBannerTitle: "Student Portal • Your Classroom",
+    studentPortalBannerSub: "Check teacher assignments, submit work, view your daily attendance record and grades.",
+    studentPortalBannerBtn: "Enter Classroom with Code",
+    tuddyAciBannerTitle: "Tuddy Advanced Chat Intelligence",
+    tuddyAciBannerSub: "In-depth explanations, comparison tables, mnemonics and rigorous study prompts.",
+    tuddyAciBannerBadge: "Advanced AI Chat",
+    gamesBannerTitle: "AI Games by Subject & Topic",
+    gamesBannerSub: "Tuddy AI adapts any of the 20 interactive games to the exact subject you want to review.",
+    gamesBannerBadge: "Adaptive Games",
     subjects: "Subjects",
     petMascot: "Companion",
     carrots: "Carrots",
